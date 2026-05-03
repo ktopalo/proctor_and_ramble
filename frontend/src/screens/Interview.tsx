@@ -1,5 +1,5 @@
 // frontend/src/screens/Interview.tsx
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Timer from '../components/Timer'
 import QuestionPanel from '../components/QuestionPanel'
 import ProctorPanel from '../components/ProctorPanel'
@@ -22,7 +22,21 @@ export default function Interview({ onEnd, timerDuration }: Props) {
   }
 
   const [showSpeech, setShowSpeech] = useState(false)
-  const recentSpeech = snapshot.transcript.slice(-10).reverse()
+
+  const unifiedTimeline = useMemo(() => {
+    type Entry =
+      | { kind: 'speech'; timestamp: string; text: string }
+      | { kind: 'code'; timestamp: string; path: string; diff: string }
+      | { kind: 'proctor'; timestamp: string; text: string }
+
+    const entries: Entry[] = [
+      ...snapshot.transcript.map(c => ({ kind: 'speech' as const, timestamp: c.timestamp, text: c.text })),
+      ...snapshot.deltas.map(d => ({ kind: 'code' as const, timestamp: d.timestamp, path: d.path, diff: d.diff })),
+      ...snapshot.interjections.map(i => ({ kind: 'proctor' as const, timestamp: i.timestamp, text: i.text })),
+    ]
+    entries.sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1))
+    return entries.slice(-20).reverse()
+  }, [snapshot.transcript, snapshot.deltas, snapshot.interjections])
 
   const glassPanel = {
     background: 'rgba(255,255,255,0.07)',
@@ -68,23 +82,50 @@ export default function Interview({ onEnd, timerDuration }: Props) {
         </div>
       </div>
 
-      {/* Speech stream (collapsed by default) */}
+      {/* Unified transcript (collapsed by default) */}
       {showSpeech && (
         <div style={{
           ...glassPanel,
-          padding: '10px 16px', flexShrink: 0, maxHeight: 150, overflowY: 'auto',
+          padding: '10px 16px', flexShrink: 0, maxHeight: 160, overflowY: 'auto',
         }}>
-          {recentSpeech.length === 0 ? (
-            <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>No speech detected yet...</span>
+          {unifiedTimeline.length === 0 ? (
+            <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>Nothing recorded yet...</span>
           ) : (
-            recentSpeech.map((chunk, i) => (
-              <div key={i} style={{ display: 'flex', gap: 10, fontSize: 12, lineHeight: 1.7 }}>
-                <span style={{ color: 'rgba(255,255,255,0.3)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
-                  {new Date(chunk.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                </span>
-                <span style={{ color: 'rgba(255,255,255,0.7)' }}>{chunk.text}</span>
-              </div>
-            ))
+            unifiedTimeline.map((entry, i) => {
+              const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+              if (entry.kind === 'speech') {
+                return (
+                  <div key={i} style={{ display: 'flex', gap: 10, fontSize: 12, lineHeight: 1.7 }}>
+                    <span style={{ color: 'rgba(255,255,255,0.3)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{time}</span>
+                    <span style={{ color: 'rgba(148,163,184,0.5)', flexShrink: 0 }}>you</span>
+                    <span style={{ color: 'rgba(255,255,255,0.7)' }}>{entry.text}</span>
+                  </div>
+                )
+              }
+              if (entry.kind === 'code') {
+                const lines = entry.diff.split('\n')
+                const added = lines.filter(l => l.startsWith('+ ')).length
+                const removed = lines.filter(l => l.startsWith('- ')).length
+                const filename = entry.path.split('/').pop() ?? entry.path
+                return (
+                  <div key={i} style={{ display: 'flex', gap: 10, fontSize: 12, lineHeight: 1.7 }}>
+                    <span style={{ color: 'rgba(255,255,255,0.3)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{time}</span>
+                    <span style={{ color: 'rgba(99,179,237,0.7)', flexShrink: 0 }}>code</span>
+                    <span style={{ color: 'rgba(255,255,255,0.5)' }}>{filename}</span>
+                    <span style={{ color: 'rgba(134,239,172,0.7)' }}>+{added}</span>
+                    <span style={{ color: 'rgba(252,165,165,0.7)' }}>-{removed}</span>
+                  </div>
+                )
+              }
+              // proctor
+              return (
+                <div key={i} style={{ display: 'flex', gap: 10, fontSize: 12, lineHeight: 1.7 }}>
+                  <span style={{ color: 'rgba(255,255,255,0.3)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{time}</span>
+                  <span style={{ color: 'rgba(251,191,36,0.7)', flexShrink: 0 }}>proctor</span>
+                  <span style={{ color: 'rgba(255,255,255,0.6)' }}>{entry.text}</span>
+                </div>
+              )
+            })
           )}
         </div>
       )}
@@ -117,7 +158,7 @@ export default function Interview({ onEnd, timerDuration }: Props) {
             padding: '0 4px',
           }}
         >
-          speech {showSpeech ? '▾' : '▸'}
+          transcript {showSpeech ? '▾' : '▸'}
         </button>
       </div>
     </div>
