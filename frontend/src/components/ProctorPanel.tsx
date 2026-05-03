@@ -13,28 +13,43 @@ function timeAgo(timestamp: string): string {
 export default function ProctorPanel({ interjections }: Props) {
   if (interjections.length === 0) {
     return (
-      <div style={{ padding: 24, color: '#9ca3af', fontSize: 14 }}>
+      <div style={{
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'rgba(255,255,255,0.25)',
+        fontSize: 14,
+      }}>
         Proctor is watching...
       </div>
     )
   }
 
   return (
-    <div style={{ padding: 24, overflowY: 'auto', height: '100%' }}>
-      <h2 style={{ marginTop: 0, fontSize: 18 }}>Proctor</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ padding: 28, overflowY: 'auto', height: '100%', boxSizing: 'border-box' }}>
+      <div style={{
+        color: 'rgba(255,255,255,0.35)',
+        fontSize: 10,
+        textTransform: 'uppercase',
+        letterSpacing: '1.5px',
+        fontWeight: 600,
+        marginBottom: 16,
+      }}>
+        Proctor
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {interjections.map((item, i) => (
-          <div
-            key={i}
-            style={{
-              background: '#f9fafb',
-              border: '1px solid #e5e7eb',
-              borderRadius: 8,
-              padding: '12px 16px',
-            }}
-          >
-            <p style={{ margin: 0, lineHeight: 1.6 }}>{item.text}</p>
-            <span style={{ fontSize: 11, color: '#9ca3af', marginTop: 6, display: 'block' }}>
+          <div key={i} style={{
+            background: 'rgba(96,208,255,0.06)',
+            border: '1px solid rgba(96,208,255,0.18)',
+            borderRadius: 10,
+            padding: '12px 16px',
+          }}>
+            <p style={{ margin: 0, lineHeight: 1.6, color: 'rgba(255,255,255,0.95)', fontSize: 13 }}>
+              {item.text}
+            </p>
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 6, display: 'block' }}>
               {timeAgo(item.timestamp)}
             </span>
           </div>
