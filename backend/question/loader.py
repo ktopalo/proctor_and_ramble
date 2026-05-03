@@ -32,21 +32,36 @@ class _TextExtractor(HTMLParser):
 
 
 _EXTRACTION_PROMPT = """\
-Extract the interview question from the page content below and enrich it into a \
-full interview plan. Return ONLY valid JSON with exactly these fields:
+You are preparing a technical coding interview brief for a software engineering candidate. \
+Extract the coding problem from the page content below and produce a rich interview plan. \
+Return ONLY valid JSON with exactly these fields:
 
 {
-  "problem_markdown": "## Problem Title\\nDetailed markdown description...",
-  "follow_ups": ["Follow-up question 1", "Follow-up question 2"],
-  "agent_briefing": "Guidance for the proctor on optimal solution, complexity analysis, etc.",
-  "rubric": "A comprehensive single string describing success criteria and evaluation dimensions."
+  "problem_markdown": "The complete problem description in markdown. Include the problem statement, \
+any code snippets as fenced code blocks, and any constraints that are immediately relevant to solving \
+the problem. Write this exactly as the candidate will read it during the interview.",
+  "follow_ups": [
+    "A markdown string for the first deferred challenge or constraint to reveal (gentlest — e.g. a follow-on constraint or small twist)",
+    "A markdown string for the next challenge (harder — e.g. a stricter complexity requirement or a variant)",
+    "..."
+  ],
+  "agent_briefing": "A thorough prose briefing a senior software engineer would write before running \
+this interview. Cover: all known approaches from brute-force to optimal with their time and space \
+complexity; the most common mistakes candidates make; subtle gotchas and edge cases the candidate \
+is likely to miss; what strong vs weak performance looks like at each stage of the interview; and \
+specific guidance on when to surface each follow-up (e.g. reveal follow-up 1 once the candidate has \
+a working brute-force solution). No length limit — be thorough.",
+  "rubric": "A free-form evaluation guide describing what a strong submission looks like. Cover: \
+correctness, time and space efficiency, code quality, communication and reasoning while coding, \
+and edge case handling."
 }
 
 Page content:
 """
 
 _SYSTEM_PROMPT = (
-    "You are an expert technical interviewer preparing a structured interview plan. "
+    "You are an expert software engineering interviewer preparing a structured brief for a live "
+    "technical coding interview. The candidate is a software engineer. "
     "Return only valid JSON, no markdown fences."
 )
 
@@ -59,7 +74,7 @@ async def load_question(url: str, llm: BaseLLMClient) -> InterviewPlan:
 
     extractor = _TextExtractor()
     extractor.feed(response.text)
-    page_text = extractor.text[:8000]
+    page_text = extractor.text[:12000]
 
     raw = await llm.complete(
         messages=[{"role": "user", "content": _EXTRACTION_PROMPT + page_text}],
