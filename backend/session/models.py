@@ -21,18 +21,11 @@ class Interjection(BaseModel):
     trigger: str  # "speech_pause" | "file_save"
 
 
-class HintStep(BaseModel):
-    level: int
-    text: str
-
-
 class InterviewPlan(BaseModel):
-    problem_statement: str
-    constraints: list[str]
-    hints: list[HintStep]
-    expected_approaches: list[str]
-    follow_up_questions: list[str]
-    rubric: dict[str, str]
+    problem_markdown: str
+    follow_ups: list[str]
+    agent_briefing: str
+    rubric: str
     source_url: Optional[str] = None
 
 
@@ -44,3 +37,4 @@ class SessionSnapshot(BaseModel):
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
     watch_path: Optional[str] = None
+    revealed_follow_up_timestamps: list[datetime] = Field(default_factory=list)

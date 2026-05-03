@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timedelta
 from backend.session.manager import SessionManager
-from backend.session.models import TranscriptChunk, FileDelta, Interjection, InterviewPlan, HintStep
+from backend.session.models import TranscriptChunk, FileDelta, Interjection, InterviewPlan
 
 
 @pytest.fixture
@@ -39,15 +39,13 @@ def test_add_interjection(manager):
 
 def test_set_plan(manager):
     plan = InterviewPlan(
-        problem_statement="Two Sum",
-        constraints=[],
-        hints=[HintStep(level=1, text="Use a hash map")],
-        expected_approaches=["hash map"],
-        follow_up_questions=[],
-        rubric={"correctness": "correct"},
+        problem_markdown="## Two Sum\nReturn indices.",
+        follow_ups=["Follow-up 1"],
+        agent_briefing="Use a hash map.",
+        rubric="Correctness and efficiency.",
     )
     manager.set_plan(plan)
-    assert manager.snapshot.plan.problem_statement == "Two Sum"
+    assert manager.snapshot.plan.problem_markdown == "## Two Sum\nReturn indices."
 
 
 def test_end_sets_ended_at(manager):
