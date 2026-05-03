@@ -81,8 +81,8 @@ No constructor change to `AgentLoop` is needed — the plan is accessible via `s
 
 The existing PROBLEM / CONSTRAINTS / HINTS block is removed — that information now lives in the system prompt via `agent_briefing`. The per-turn context becomes:
 
-- **State header** — elapsed time, `revealed_follow_up_count / total_follow_ups`, and the text of already-revealed follow-ups so the agent knows what the candidate has already been shown
-- **Timeline** — the existing chronological interleaved log of SPEECH, CODE diffs, and PROCTOR interjections with relative timestamps. This is preserved exactly as-is.
+- **State header** — elapsed time and `revealed_follow_up_count / total_follow_ups`, so the agent knows whether more reveals are available
+- **Timeline** — the existing chronological interleaved log of SPEECH, CODE diffs, and PROCTOR interjections with relative timestamps, now extended with a `FOLLOW_UP_REVEALED` event type. When a follow-up is revealed, it enters the event stream at the correct timestamp so the agent sees exactly when each one was surfaced relative to the candidate's speech and code changes. No separate "revealed follow-ups" section is needed — the timeline is self-contained.
 
 ### Reveal signal
 
