@@ -58,7 +58,10 @@ export default function Interview({ onEnd, timerDuration }: Props) {
       {/* Main panels */}
       <div style={{ display: 'flex', flex: 1, gap: 12, overflow: 'hidden' }}>
         <div style={{ ...glassPanel, flex: '0 0 60%', overflow: 'hidden' }}>
-          <QuestionPanel plan={snapshot.plan} />
+          <QuestionPanel
+            plan={snapshot.plan}
+            revealedCount={snapshot.revealed_follow_up_timestamps.length}
+          />
         </div>
         <div style={{ ...glassPanel, flex: '0 0 40%', overflow: 'hidden' }}>
           <ProctorPanel interjections={snapshot.interjections} />

@@ -1,11 +1,12 @@
-import type { InterviewPlan } from '../types/session'
 import { MarkdownText } from './MarkdownText'
+import type { InterviewPlan } from '../types/session'
 
 interface Props {
   plan: InterviewPlan | null
+  revealedCount: number
 }
 
-export default function QuestionPanel({ plan }: Props) {
+export default function QuestionPanel({ plan, revealedCount }: Props) {
   if (!plan) {
     return (
       <div style={{
@@ -33,38 +34,31 @@ export default function QuestionPanel({ plan }: Props) {
       }}>
         Problem
       </div>
-      <MarkdownText style={{ color: 'rgba(255,255,255,0.95)', fontSize: 14, marginBottom: 24 }}>
-        {plan.problem_statement}
+      <MarkdownText style={{ color: 'rgba(255,255,255,0.95)', fontSize: 14 }}>
+        {plan.problem_markdown}
       </MarkdownText>
 
-      {plan.constraints.length > 0 && (
-        <>
+      {plan.follow_ups.slice(0, revealedCount).map((followUp, i) => (
+        <div key={i} style={{
+          marginTop: 24,
+          paddingLeft: 16,
+          borderLeft: '2px solid rgba(96,208,255,0.3)',
+        }}>
           <div style={{
-            color: 'rgba(255,255,255,0.35)',
+            color: 'rgba(96,208,255,0.6)',
             fontSize: 10,
             textTransform: 'uppercase',
             letterSpacing: '1.5px',
             fontWeight: 600,
-            marginBottom: 10,
+            marginBottom: 8,
           }}>
-            Constraints
+            Follow-up {i + 1}
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {plan.constraints.map((c, i) => (
-              <span key={i} style={{
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 6,
-                padding: '4px 10px',
-                color: 'rgba(255,255,255,0.55)',
-                fontSize: 12,
-              }}>
-                {c}
-              </span>
-            ))}
-          </div>
-        </>
-      )}
+          <MarkdownText style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>
+            {followUp}
+          </MarkdownText>
+        </div>
+      ))}
     </div>
   )
 }

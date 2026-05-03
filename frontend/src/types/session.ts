@@ -16,18 +16,11 @@ export interface Interjection {
   trigger: 'speech_pause' | 'file_save'
 }
 
-export interface HintStep {
-  level: number
-  text: string
-}
-
 export interface InterviewPlan {
-  problem_statement: string
-  constraints: string[]
-  hints: HintStep[]
-  expected_approaches: string[]
-  follow_up_questions: string[]
-  rubric: Record<string, string>
+  problem_markdown: string
+  follow_ups: string[]
+  agent_briefing: string
+  rubric: string
   source_url: string | null
 }
 
@@ -39,6 +32,7 @@ export interface SessionSnapshot {
   started_at: string | null
   ended_at: string | null
   watch_path: string | null
+  revealed_follow_up_timestamps: string[]
 }
 
 export type WSEventType =
@@ -48,6 +42,7 @@ export type WSEventType =
   | 'transcript_chunk'
   | 'file_delta'
   | 'interjection'
+  | 'follow_up_revealed'
 
 export interface WSEvent {
   type: WSEventType

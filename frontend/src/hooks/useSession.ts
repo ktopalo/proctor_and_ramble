@@ -11,6 +11,7 @@ const EMPTY_SNAPSHOT: SessionSnapshot = {
   started_at: null,
   ended_at: null,
   watch_path: null,
+  revealed_follow_up_timestamps: [],
 }
 
 export function useSession() {
@@ -49,6 +50,14 @@ export function useSession() {
             return {
               ...prev,
               interjections: [msg.data as unknown as Interjection, ...prev.interjections],
+            }
+          case 'follow_up_revealed':
+            return {
+              ...prev,
+              revealed_follow_up_timestamps: [
+                ...prev.revealed_follow_up_timestamps,
+                new Date().toISOString(),
+              ],
             }
           default:
             return prev

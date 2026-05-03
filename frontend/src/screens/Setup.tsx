@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useSession } from '../hooks/useSession'
 import type { InterviewPlan } from '../types/session'
 import { Spinner } from '../components/Spinner'
+import { MarkdownText } from '../components/MarkdownText'
 
 interface Props {
   onStart: (durationSeconds: number) => void
@@ -114,69 +115,50 @@ function QuestionPreview({ plan }: { plan: InterviewPlan }) {
       }}>
         ✦ Question understood
       </div>
-      <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, lineHeight: 1.6, margin: '0 0 12px' }}>
-        {plan.problem_statement}
-      </p>
-      {plan.constraints.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 12 }}>
-          {plan.constraints.map((c, i) => (
-            <span key={i} style={{
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: 4,
-              padding: '3px 8px',
-              color: 'rgba(255,255,255,0.45)',
-              fontSize: 11,
-            }}>{c}</span>
-          ))}
-        </div>
-      )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <SpoilerRow
-          label="Hints"
-          count={plan.hints.length}
-          open={!!open.hints}
-          onToggle={() => toggle('hints')}
-        >
-          <ul style={{ margin: 0, padding: '0 0 0 16px' }}>
-            {plan.hints.map((h, i) => (
-              <li key={i} style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 1.6 }}>
-                {h.text}
-              </li>
-            ))}
-          </ul>
-        </SpoilerRow>
-        <SpoilerRow
-          label="Expected approaches"
-          count={plan.expected_approaches.length}
-          open={!!open.approaches}
-          onToggle={() => toggle('approaches')}
-        >
-          <ul style={{ margin: 0, padding: '0 0 0 16px' }}>
-            {plan.expected_approaches.map((a, i) => (
-              <li key={i} style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 1.6 }}>{a}</li>
-            ))}
-          </ul>
-        </SpoilerRow>
+      <MarkdownText style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13 }}>
+        {plan.problem_markdown}
+      </MarkdownText>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+        {plan.follow_ups.length > 0 && (
+          <SpoilerRow
+            label="Follow-ups"
+            count={plan.follow_ups.length}
+            open={!!open.follow_ups}
+            onToggle={() => toggle('follow_ups')}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {plan.follow_ups.map((f, i) => (
+                <div key={i} style={{
+                  borderLeft: '2px solid rgba(96,208,255,0.3)',
+                  paddingLeft: 10,
+                }}>
+                  <MarkdownText style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
+                    {f}
+                  </MarkdownText>
+                </div>
+              ))}
+            </div>
+          </SpoilerRow>
+        )}
         <SpoilerRow
           label="Rubric"
-          count={Object.keys(plan.rubric).length}
+          count={1}
           open={!!open.rubric}
           onToggle={() => toggle('rubric')}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {Object.entries(plan.rubric).map(([k, v]) => (
-              <div key={k} style={{ display: 'flex', gap: 10 }}>
-                <span style={{
-                  color: 'rgba(255,255,255,0.55)',
-                  fontSize: 12,
-                  minWidth: 110,
-                  textTransform: 'capitalize',
-                }}>{k}</span>
-                <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>{v}</span>
-              </div>
-            ))}
-          </div>
+          <MarkdownText style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
+            {plan.rubric}
+          </MarkdownText>
+        </SpoilerRow>
+        <SpoilerRow
+          label="Agent Brief"
+          count={1}
+          open={!!open.briefing}
+          onToggle={() => toggle('briefing')}
+        >
+          <MarkdownText style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
+            {plan.agent_briefing}
+          </MarkdownText>
         </SpoilerRow>
       </div>
     </div>
