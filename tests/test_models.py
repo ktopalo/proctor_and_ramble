@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from backend.session.models import (
     TranscriptChunk, FileDelta, Interjection,
     HintStep, InterviewPlan, SessionSnapshot,
@@ -36,3 +36,18 @@ def test_session_snapshot_defaults():
     assert snap.transcript == []
     assert snap.deltas == []
     assert snap.interjections == []
+
+
+def test_transcript_chunk_timestamp_is_timezone_aware():
+    chunk = TranscriptChunk(text="hello", duration_seconds=1.0)
+    assert chunk.timestamp.tzinfo is not None
+
+
+def test_file_delta_timestamp_is_timezone_aware():
+    delta = FileDelta(path="/foo/bar.py", diff="+ x = 1")
+    assert delta.timestamp.tzinfo is not None
+
+
+def test_interjection_timestamp_is_timezone_aware():
+    i = Interjection(text="Think carefully.", trigger="speech_pause")
+    assert i.timestamp.tzinfo is not None
