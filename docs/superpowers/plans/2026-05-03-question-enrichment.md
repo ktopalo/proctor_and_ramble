@@ -4,7 +4,7 @@
 
 **Goal:** Replace the flat `InterviewPlan` structure with a two-zone model (display markdown + rich agent briefing) and wire up a progressive follow-up reveal mechanic via a new WebSocket event.
 
-**Architecture:** New `InterviewPlan` has four fields (`problem_markdown`, `follow_ups`, `agent_briefing`, `rubric`). The agent loop dynamically builds its system prompt by appending the briefing to the static proctor instructions. Follow-up reveals are tracked as a timestamp list on `SessionSnapshot` and broadcast as `follow_up_revealed` WS events.
+**Architecture:** New `InterviewPlan` has four fields (`problem_markdown`, `follow_ups`, `agent_briefing`, `rubric`). The agent loop dynamically builds its system prompt by appending the briefing to the static proctor instructions. Follow-up reveals are tracked as a timestamp list on `SessionSnapshot` and broadcast as `follow_up_revealed` WS events. `SessionManager` owns the timeline via a bisect-sorted `_timeline_events` list and a `timeline_text` property — `_build_context` reads from it rather than building events itself. `reveal_next_follow_up()` inserts a `FOLLOW_UP_REVEALED` entry into `_timeline_events` alongside the other event types.
 
 **Tech Stack:** Python/Pydantic (backend models), FastAPI (WS broadcast), TypeScript/React (frontend), `react-markdown` via existing `MarkdownText` component (already installed).
 
@@ -15,7 +15,7 @@
 | File | Action | What changes |
 |---|---|---|
 | `backend/session/models.py` | Modify | New `InterviewPlan` fields; `revealed_follow_up_timestamps` on `SessionSnapshot`; remove `HintStep` |
-| `backend/session/manager.py` | Modify | Add `reveal_next_follow_up()` method |
+| `backend/session/manager.py` | Modify | Add `reveal_next_follow_up()` — appends timestamp AND bisect-inserts `FOLLOW_UP_REVEALED` into `_timeline_events` |
 | `backend/question/loader.py` | Modify | New extraction + system prompts; truncation 8000→12000 |
 | `backend/agent/prompts.py` | Modify | Add `REVEAL_NEXT_FOLLOWUP` paragraph to proctor instructions |
 | `backend/agent/loop.py` | Modify | Dynamic system prompt; new `_build_context`; `REVEAL_NEXT_FOLLOWUP` parsing; `on_follow_up_revealed` callback |
@@ -26,7 +26,7 @@
 | `frontend/src/screens/Interview.tsx` | Modify | Pass `revealedCount` to `QuestionPanel` |
 | `frontend/src/screens/Setup.tsx` | Modify | Redesign `QuestionPreview` for new `InterviewPlan` shape |
 | `tests/test_models.py` | Modify | Update `InterviewPlan` tests; remove `HintStep` test; add `revealed_follow_up_timestamps` test |
-| `tests/test_session_manager.py` | Modify | Add `reveal_next_follow_up` test |
+| `tests/test_session_manager.py` | Modify | Fix old-model imports/assertions broken by Task 1; add `reveal_next_follow_up` + `FOLLOW_UP_REVEALED` timeline tests |
 | `tests/test_question_loader.py` | Modify | Update mock LLM response + assertions for new fields |
 | `tests/test_agent_loop.py` | Modify | Update `plan` fixture; add `REVEAL_NEXT_FOLLOWUP` signal tests; add `FOLLOW_UP_REVEALED` timeline test |
 
@@ -63,7 +63,38 @@ def test_session_snapshot_has_revealed_follow_up_timestamps():
     assert snap.revealed_follow_up_timestamps == []
 ```
 
-Also remove the import of `HintStep` from the test file's import line since that class is being removed.
+Remove the import of `HintStep` from the test file's import line since that class is being removed.
+
+Also fix `tests/test_session_manager.py` which currently imports `HintStep` and asserts `problem_statement`. Update its import line from:
+```python
+from backend.session.models import TranscriptChunk, FileDelta, Interjection, InterviewPlan, HintStep
+```
+to:
+```python
+from backend.session.models import TranscriptChunk, FileDelta, Interjection, InterviewPlan
+```
+
+And update the `test_set_plan` assertion from:
+```python
+    assert manager.snapshot.plan.problem_statement == "Two Sum"
+```
+to:
+```python
+    assert manager.snapshot.plan.problem_markdown == "## Two Sum\nReturn indices."
+```
+
+And update the plan construction inside `test_set_plan` (which currently uses old fields) to:
+```python
+def test_set_plan(manager):
+    plan = InterviewPlan(
+        problem_markdown="## Two Sum\nReturn indices.",
+        follow_ups=["Follow-up 1"],
+        agent_briefing="Use a hash map.",
+        rubric="Correctness and efficiency.",
+    )
+    manager.set_plan(plan)
+    assert manager.snapshot.plan.problem_markdown == "## Two Sum\nReturn indices."
+```
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -144,38 +175,45 @@ git commit -m "feat: replace InterviewPlan with two-zone model, add reveal times
 - Modify: `backend/session/manager.py`
 - Modify: `tests/test_session_manager.py`
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the failing tests**
 
-Add to `tests/test_session_manager.py`:
+Add to `tests/test_session_manager.py` (the `test_set_plan` and import fixes were done in Task 1 — these are new tests only):
 
 ```python
-def test_reveal_next_follow_up(manager):
+def test_reveal_next_follow_up_increments_timestamps(manager):
     manager.start(watch_path="/foo")
     assert len(manager.snapshot.revealed_follow_up_timestamps) == 0
     manager.reveal_next_follow_up()
     assert len(manager.snapshot.revealed_follow_up_timestamps) == 1
     manager.reveal_next_follow_up()
     assert len(manager.snapshot.revealed_follow_up_timestamps) == 2
-```
 
-Also update `test_set_plan` to use the new `InterviewPlan` fields — replace the existing test body:
 
-```python
-def test_set_plan(manager):
+def test_reveal_next_follow_up_appears_in_timeline():
+    """reveal_next_follow_up inserts a FOLLOW_UP_REVEALED entry into the timeline."""
     plan = InterviewPlan(
-        problem_markdown="## Two Sum\nReturn indices.",
-        follow_ups=["Follow-up 1"],
-        agent_briefing="Use a hash map.",
-        rubric="Correctness and efficiency.",
+        problem_markdown="## Problem",
+        follow_ups=["What if sorted?", "O(1) space?"],
+        agent_briefing="Use hash map.",
+        rubric="Correctness.",
     )
-    manager.set_plan(plan)
-    assert manager.snapshot.plan.problem_markdown == "## Two Sum\nReturn indices."
-```
+    mgr = SessionManager()
+    mgr.start(watch_path="/foo/main.py")
+    mgr.set_plan(plan)
+    t0 = mgr.snapshot.started_at
 
-Remove the `HintStep` import from `tests/test_session_manager.py` — update the import line to:
+    mgr.add_transcript_chunk(TranscriptChunk(
+        text="I think I have a solution",
+        timestamp=t0 + timedelta(seconds=30),
+        duration_seconds=2.0,
+    ))
+    mgr.reveal_next_follow_up(follow_up_text="What if sorted?")
 
-```python
-from backend.session.models import TranscriptChunk, FileDelta, Interjection, InterviewPlan
+    timeline = mgr.timeline_text
+    assert "FOLLOW_UP_REVEALED: What if sorted?" in timeline
+    speech_pos = timeline.index("[00:30] SPEECH:")
+    reveal_pos = timeline.index("FOLLOW_UP_REVEALED:")
+    assert speech_pos < reveal_pos
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -188,43 +226,18 @@ Expected: FAIL — `reveal_next_follow_up` method doesn't exist yet.
 
 - [ ] **Step 3: Update `backend/session/manager.py`**
 
+Add `reveal_next_follow_up(follow_up_text: str)` to the existing manager. The method appends to `revealed_follow_up_timestamps` AND inserts a formatted `FOLLOW_UP_REVEALED` entry into `_timeline_events` using `bisect.insort`, exactly as `add_interjection` does for PROCTOR entries:
+
 ```python
-from datetime import datetime, timezone
-from backend.session.models import (
-    TranscriptChunk, FileDelta, Interjection,
-    InterviewPlan, SessionSnapshot,
-)
-
-
-class SessionManager:
-    def __init__(self):
-        self.snapshot = SessionSnapshot()
-
-    def start(self, watch_path: str) -> None:
-        self.snapshot = SessionSnapshot(
-            started_at=datetime.now(timezone.utc),
-            watch_path=watch_path,
-            plan=self.snapshot.plan,
-        )
-
-    def end(self) -> None:
-        self.snapshot.ended_at = datetime.now(timezone.utc)
-
-    def set_plan(self, plan: InterviewPlan) -> None:
-        self.snapshot.plan = plan
-
-    def add_transcript_chunk(self, chunk: TranscriptChunk) -> None:
-        self.snapshot.transcript.append(chunk)
-
-    def add_file_delta(self, delta: FileDelta) -> None:
-        self.snapshot.deltas.append(delta)
-
-    def add_interjection(self, interjection: Interjection) -> None:
-        self.snapshot.interjections.append(interjection)
-
-    def reveal_next_follow_up(self) -> None:
-        self.snapshot.revealed_follow_up_timestamps.append(datetime.now(timezone.utc))
+    def reveal_next_follow_up(self, follow_up_text: str) -> None:
+        now = datetime.now(timezone.utc)
+        self.snapshot.revealed_follow_up_timestamps.append(now)
+        prefix = self._render_offset(now)
+        line = f"{prefix} FOLLOW_UP_REVEALED: {follow_up_text}"
+        bisect.insort(self._timeline_events, (now, line))
 ```
+
+Add only this method — do not replace the entire file.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -757,135 +770,6 @@ async def test_system_prompt_includes_agent_briefing(session):
     assert "RUBRIC:" in system_prompt
 
 
-def test_build_context_chronological_ordering():
-    """Events added out of order should appear sorted by timestamp in the timeline."""
-    mgr = SessionManager()
-    mgr.start(watch_path="/foo/main.py")
-    t0 = mgr.snapshot.started_at
-
-    mgr.add_file_delta(FileDelta(
-        path="/foo/main.py", diff="+ x = 1",
-        timestamp=t0 + timedelta(seconds=75),
-    ))
-    mgr.add_transcript_chunk(TranscriptChunk(
-        text="I'll use a hash map",
-        timestamp=t0 + timedelta(seconds=42),
-        duration_seconds=2.0,
-    ))
-    mgr.add_interjection(Interjection(
-        text="Have you considered edge cases?",
-        timestamp=t0 + timedelta(seconds=240),
-        trigger="speech_pause",
-    ))
-
-    loop = AgentLoop(
-        session=mgr, llm=AsyncMock(),
-        min_interjection_gap_seconds=0, on_interjection=lambda i: None,
-    )
-    context = loop._build_context()
-
-    speech_pos = context.index("[00:42] SPEECH:")
-    code_pos = context.index("[01:15] CODE")
-    proctor_pos = context.index("[04:00] PROCTOR:")
-    assert speech_pos < code_pos < proctor_pos
-
-
-def test_build_context_includes_follow_up_revealed_event():
-    """A revealed follow-up appears in the timeline at its reveal timestamp."""
-    plan = InterviewPlan(
-        problem_markdown="## Problem",
-        follow_ups=["What if sorted?"],
-        agent_briefing="Use hash map.",
-        rubric="Correctness.",
-    )
-    mgr = SessionManager()
-    mgr.start(watch_path="/foo/main.py")
-    mgr.set_plan(plan)
-    t0 = mgr.snapshot.started_at
-
-    mgr.add_transcript_chunk(TranscriptChunk(
-        text="I think I have a solution",
-        timestamp=t0 + timedelta(seconds=30),
-        duration_seconds=2.0,
-    ))
-    # Manually inject a reveal timestamp (normally done by reveal_next_follow_up)
-    mgr.snapshot.revealed_follow_up_timestamps.append(t0 + timedelta(seconds=60))
-
-    loop = AgentLoop(
-        session=mgr, llm=AsyncMock(),
-        min_interjection_gap_seconds=0, on_interjection=lambda i: None,
-    )
-    context = loop._build_context()
-
-    assert "FOLLOW_UP_REVEALED" in context
-    speech_pos = context.index("[00:30] SPEECH:")
-    reveal_pos = context.index("[01:00] FOLLOW_UP_REVEALED:")
-    assert speech_pos < reveal_pos
-
-
-def test_build_context_event_labels():
-    """All three event types appear with correct labels and content."""
-    mgr = SessionManager()
-    mgr.start(watch_path="/foo/main.py")
-    t0 = mgr.snapshot.started_at
-
-    mgr.add_transcript_chunk(TranscriptChunk(
-        text="thinking aloud", timestamp=t0 + timedelta(seconds=10), duration_seconds=1.0,
-    ))
-    mgr.add_file_delta(FileDelta(
-        path="/foo/main.py", diff="+ def solve(): pass",
-        timestamp=t0 + timedelta(seconds=20),
-    ))
-    mgr.add_interjection(Interjection(
-        text="What's the time complexity?",
-        timestamp=t0 + timedelta(seconds=30),
-        trigger="speech_pause",
-    ))
-
-    loop = AgentLoop(
-        session=mgr, llm=AsyncMock(),
-        min_interjection_gap_seconds=0, on_interjection=lambda i: None,
-    )
-    context = loop._build_context()
-
-    assert "SPEECH: thinking aloud" in context
-    assert "CODE main.py" in context
-    assert "PROCTOR: What's the time complexity?" in context
-
-
-def test_build_context_mm_ss_format():
-    """Elapsed timestamps render as [MM:SS] relative to session start."""
-    mgr = SessionManager()
-    mgr.start(watch_path="/foo/main.py")
-    t0 = mgr.snapshot.started_at
-
-    mgr.add_transcript_chunk(TranscriptChunk(
-        text="hello", timestamp=t0 + timedelta(seconds=125), duration_seconds=1.0,
-    ))
-
-    loop = AgentLoop(
-        session=mgr, llm=AsyncMock(),
-        min_interjection_gap_seconds=0, on_interjection=lambda i: None,
-    )
-    context = loop._build_context()
-
-    assert "[02:05] SPEECH: hello" in context
-
-
-def test_build_context_no_timeline_when_empty():
-    """No TIMELINE section when the session has no events yet."""
-    mgr = SessionManager()
-    mgr.start(watch_path="/foo/main.py")
-
-    loop = AgentLoop(
-        session=mgr, llm=AsyncMock(),
-        min_interjection_gap_seconds=0, on_interjection=lambda i: None,
-    )
-    context = loop._build_context()
-
-    assert "TIMELINE" not in context
-
-
 def test_build_context_has_follow_up_state_header():
     """Context includes FOLLOW-UPS REVEALED count when a plan is loaded."""
     plan = InterviewPlan(
@@ -905,6 +789,20 @@ def test_build_context_has_follow_up_state_header():
     context = loop._build_context()
 
     assert "FOLLOW-UPS REVEALED: 0 of 2" in context
+
+
+def test_build_context_no_timeline_when_empty():
+    """No TIMELINE section when the session has no events yet."""
+    mgr = SessionManager()
+    mgr.start(watch_path="/foo/main.py")
+
+    loop = AgentLoop(
+        session=mgr, llm=AsyncMock(),
+        min_interjection_gap_seconds=0, on_interjection=lambda i: None,
+    )
+    context = loop._build_context()
+
+    assert "TIMELINE" not in context
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -917,10 +815,11 @@ Expected: FAIL — `AgentLoop` doesn't have `on_follow_up_revealed`, system prom
 
 - [ ] **Step 3: Update `backend/agent/loop.py`**
 
+The manager now owns the timeline. `_build_context` just needs a state header + `self._session.timeline_text`. Also add `on_follow_up_revealed` callback, dynamic system prompt, and `REVEAL_NEXT_FOLLOWUP` parsing. Replace the entire file:
+
 ```python
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Callable
 from backend.session.manager import SessionManager
 from backend.engines.llm_base import BaseLLMClient
@@ -963,7 +862,6 @@ class AgentLoop:
     def _build_context(self) -> str:
         snap = self._session.snapshot
         plan = snap.plan
-
         parts = []
 
         if snap.started_at:
@@ -975,39 +873,9 @@ class AgentLoop:
             revealed = len(snap.revealed_follow_up_timestamps)
             parts.append(f"FOLLOW-UPS REVEALED: {revealed} of {total}")
 
-        events: list[tuple[datetime, str]] = []
-
-        for chunk in snap.transcript:
-            events.append((chunk.timestamp, f"SPEECH: {chunk.text}"))
-
-        for delta in snap.deltas:
-            lines = delta.diff.splitlines()
-            added = sum(1 for l in lines if l.startswith("+ "))
-            removed = sum(1 for l in lines if l.startswith("- "))
-            name = Path(delta.path).name
-            indented = "\n".join("  " + l for l in lines)
-            events.append((delta.timestamp, f"CODE {name} (+{added} -{removed}):\n{indented}"))
-
-        for interjection in snap.interjections:
-            events.append((interjection.timestamp, f"PROCTOR: {interjection.text}"))
-
-        if plan:
-            for i, ts in enumerate(snap.revealed_follow_up_timestamps):
-                if i < len(plan.follow_ups):
-                    events.append((ts, f"FOLLOW_UP_REVEALED: {plan.follow_ups[i]}"))
-
-        events.sort(key=lambda e: e[0])
-
-        if events:
-            timeline_lines = []
-            for ts, content in events:
-                if snap.started_at:
-                    offset = max(0, int((ts - snap.started_at).total_seconds()))
-                    prefix = f"[{offset // 60:02d}:{offset % 60:02d}]"
-                else:
-                    prefix = "[??:??]"
-                timeline_lines.append(f"{prefix} {content}")
-            parts.append("TIMELINE:\n" + "\n".join(timeline_lines))
+        timeline = self._session.timeline_text
+        if timeline:
+            parts.append(timeline)
 
         return "\n\n".join(parts)
 
@@ -1040,7 +908,9 @@ class AgentLoop:
         if response.strip().upper().startswith("REVEAL_NEXT_FOLLOWUP"):
             plan = snap.plan
             if plan and len(snap.revealed_follow_up_timestamps) < len(plan.follow_ups):
-                self._session.reveal_next_follow_up()
+                next_index = len(snap.revealed_follow_up_timestamps)
+                follow_up_text = plan.follow_ups[next_index]
+                self._session.reveal_next_follow_up(follow_up_text=follow_up_text)
                 self._on_follow_up_revealed()
                 log.info("AgentLoop follow-up revealed  count=%d",
                          len(self._session.snapshot.revealed_follow_up_timestamps))
