@@ -4,18 +4,16 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock
 from backend.agent.loop import AgentLoop
 from backend.session.manager import SessionManager
-from backend.session.models import InterviewPlan, HintStep, TranscriptChunk, FileDelta, Interjection
+from backend.session.models import InterviewPlan, TranscriptChunk, FileDelta, Interjection
 
 
 @pytest.fixture
 def plan():
     return InterviewPlan(
-        problem_statement="Two Sum",
-        constraints=[],
-        hints=[HintStep(level=1, text="Use a hash map")],
-        expected_approaches=["hash map"],
-        follow_up_questions=[],
-        rubric={"correctness": "correct"},
+        problem_markdown="## Two Sum\nReturn indices of two numbers that add up to target.",
+        follow_ups=["What if the array is sorted?"],
+        agent_briefing="Use a hash map for O(n) solution.",
+        rubric="Correctness and efficiency.",
     )
 
 

@@ -6,20 +6,10 @@ from backend.session.models import InterviewPlan
 
 
 MOCK_LLM_RESPONSE = json.dumps({
-    "problem_statement": "Given an array of integers, return indices of the two numbers that add up to target.",
-    "constraints": ["2 <= nums.length <= 10^4", "Each input has exactly one solution"],
-    "hints": [
-        {"level": 1, "text": "Think about what complement you need for each number."},
-        {"level": 2, "text": "A hash map can give O(1) lookups."},
-    ],
-    "expected_approaches": ["Brute force O(n²)", "Hash map O(n)"],
-    "follow_up_questions": ["What if the array is sorted?", "What if there are multiple valid answers?"],
-    "rubric": {
-        "correctness": "Returns correct indices for all test cases",
-        "efficiency": "Achieves O(n) time complexity",
-        "communication": "Explains reasoning while coding",
-        "edge_cases": "Handles negative numbers and duplicates",
-    },
+    "problem_markdown": "## Two Sum\nGiven an array of integers, return indices of the two numbers that add up to target.",
+    "follow_ups": ["What if the array is sorted?", "What if there are multiple valid answers?"],
+    "agent_briefing": "Optimal solution uses a hash map for O(n) time complexity. Guide the candidate toward this if they start with brute force.",
+    "rubric": "Correctness: Returns correct indices. Efficiency: Achieves O(n) time. Communication: Explains reasoning. Edge cases: Handles negatives and duplicates.",
 })
 
 
@@ -43,9 +33,9 @@ async def test_load_question_returns_interview_plan():
         plan = await load_question("https://leetcode.com/problems/two-sum/", mock_llm)
 
     assert isinstance(plan, InterviewPlan)
-    assert "two numbers" in plan.problem_statement.lower() or "indices" in plan.problem_statement.lower()
-    assert len(plan.hints) == 2
-    assert plan.hints[0].level == 1
+    assert "two numbers" in plan.problem_markdown.lower() or "indices" in plan.problem_markdown.lower()
+    assert len(plan.follow_ups) == 2
+    assert isinstance(plan.rubric, str)
     assert plan.source_url == "https://leetcode.com/problems/two-sum/"
 
 

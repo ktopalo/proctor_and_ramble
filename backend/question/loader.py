@@ -36,17 +36,10 @@ Extract the interview question from the page content below and enrich it into a 
 full interview plan. Return ONLY valid JSON with exactly these fields:
 
 {
-  "problem_statement": "...",
-  "constraints": ["...", "..."],
-  "hints": [{"level": 1, "text": "subtle hint"}, {"level": 2, "text": "more direct"}],
-  "expected_approaches": ["...", "..."],
-  "follow_up_questions": ["...", "..."],
-  "rubric": {
-    "correctness": "...",
-    "efficiency": "...",
-    "communication": "...",
-    "edge_cases": "..."
-  }
+  "problem_markdown": "## Problem Title\\nDetailed markdown description...",
+  "follow_ups": ["Follow-up question 1", "Follow-up question 2"],
+  "agent_briefing": "Guidance for the proctor on optimal solution, complexity analysis, etc.",
+  "rubric": "A comprehensive single string describing success criteria and evaluation dimensions."
 }
 
 Page content:
@@ -80,5 +73,5 @@ async def load_question(url: str, llm: BaseLLMClient) -> InterviewPlan:
         raise
 
     plan = InterviewPlan(**data, source_url=url)
-    log.info("InterviewPlan created  problem=%s", plan.problem_statement[:80])
+    log.info("InterviewPlan created  problem=%s", plan.problem_markdown[:80])
     return plan
