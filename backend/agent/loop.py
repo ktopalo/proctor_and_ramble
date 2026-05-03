@@ -92,6 +92,7 @@ class AgentLoop:
                 follow_up_text = plan.follow_ups[next_index]
                 self._session.reveal_next_follow_up(follow_up_text=follow_up_text)
                 self._on_follow_up_revealed()
+                self._last_interjection_at = datetime.now(timezone.utc)
                 log.info("AgentLoop follow-up revealed  count=%d",
                          len(self._session.snapshot.revealed_follow_up_timestamps))
             parts = response.strip().split(":", 1)
