@@ -12,7 +12,7 @@ An AI interviewer that recreates the feeling of having a live proctor. It watche
 |---|---|
 | Backend | Python, FastAPI, WebSocket |
 | Frontend | TypeScript, React (Vite) |
-| STT (default) | mlx-whisper (`mlx-community/whisper-large-v3-mlx`) on Apple Silicon |
+| STT (default) | Groq Whisper API (`whisper-large-v3-turbo`) — fallback: mlx-whisper on Apple Silicon |
 | LLM (default) | OpenAI API (`gpt-4o`) |
 | File watching | watchdog |
 
@@ -112,9 +112,11 @@ proctor_and_ramble/
 - `stop()` — end audio capture
 - `on_transcript(chunk: TranscriptChunk)` — callback fired on each transcribed segment
 
-`MLXWhisperEngine` — default impl. Streams mic audio through mlx-whisper, emits `TranscriptChunk` events, fires a `SpeechPause` trigger when silence exceeds `speech_pause_threshold_seconds`.
+`GroqWhisperEngine` — default impl. Captures mic audio locally via sounddevice, batches it on silence (or at a 30-second hard cap), and sends WAV bytes to the Groq Whisper API. Requires `GROQ_API_KEY` in env.
 
-To add a new STT backend: subclass `BaseSTTEngine`, register the name in config.
+`MLXWhisperEngine` — Apple Silicon local fallback. Runs mlx-whisper on-device. Set `engine: mlx_whisper` in config to use.
+
+To add a new STT backend: subclass `BaseSTTEngine`, register the name in `_build_stt()` in `main.py`, and add it to `config.yaml`.
 
 ### LLM Client (swappable)
 

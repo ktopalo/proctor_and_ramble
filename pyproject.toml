@@ -18,6 +18,8 @@ dependencies = [
     "sounddevice>=0.4",
     "numpy>=1.26",
     "mlx-whisper>=0.3",
+    "groq>=0.9",
+    "silero-vad",
 ]
 
 [project.optional-dependencies]

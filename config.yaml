@@ -1,7 +1,7 @@
 stt:
-  engine: mlx_whisper
-  model: mlx-community/whisper-large-v3-turbo
-  speech_pause_threshold_seconds: 3
+  engine: groq_whisper
+  model: whisper-large-v3
+  speech_pause_threshold_seconds: 1
 
 llm:
   # provider: openai

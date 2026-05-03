@@ -56,6 +56,12 @@ def _build_stt() -> BaseSTTEngine:
             model=config.stt.model,
             pause_threshold_seconds=config.stt.speech_pause_threshold_seconds,
         )
+    if config.stt.engine == "groq_whisper":
+        from backend.engines.groq_whisper import GroqWhisperEngine
+        return GroqWhisperEngine(
+            model=config.stt.model,
+            pause_threshold_seconds=config.stt.speech_pause_threshold_seconds,
+        )
     raise ValueError(f"Unknown STT engine: {config.stt.engine}")
 
 
