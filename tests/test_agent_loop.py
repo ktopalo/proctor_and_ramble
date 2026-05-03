@@ -10,10 +10,10 @@ from backend.session.models import InterviewPlan, TranscriptChunk, FileDelta, In
 @pytest.fixture
 def plan():
     return InterviewPlan(
-        problem_markdown="## Two Sum\nReturn indices of two numbers that add up to target.",
-        follow_ups=["What if the array is sorted?"],
-        agent_briefing="Use a hash map for O(n) solution.",
-        rubric="Correctness and efficiency.",
+        problem_markdown="## Two Sum\nReturn indices of two numbers that add up to `target`.",
+        follow_ups=["What if the array is sorted?", "Can you solve it in O(1) space?"],
+        agent_briefing="Optimal solution is a hash map for O(n) time and O(n) space. Brute force is O(n²). Common mistake: returning values not indices. Edge case: same index used twice.",
+        rubric="Strong: O(n) hash map, correct indices, edge cases handled.",
     )
 
 
@@ -201,3 +201,117 @@ def test_build_context_no_timeline_when_empty():
     context = loop._build_context()
 
     assert "TIMELINE" not in context
+
+
+@pytest.mark.asyncio
+async def test_reveal_next_followup_increments_count(session):
+    """REVEAL_NEXT_FOLLOWUP increments revealed count and calls the callback."""
+    mock_llm = AsyncMock()
+    mock_llm.complete = AsyncMock(return_value="REVEAL_NEXT_FOLLOWUP")
+    revealed = []
+
+    loop = AgentLoop(
+        session=session,
+        llm=mock_llm,
+        min_interjection_gap_seconds=0,
+        on_interjection=lambda i: None,
+        on_follow_up_revealed=lambda: revealed.append(True),
+    )
+
+    await loop.on_speech_pause()
+
+    assert len(session.snapshot.revealed_follow_up_timestamps) == 1
+    assert len(revealed) == 1
+
+
+@pytest.mark.asyncio
+async def test_reveal_next_followup_with_interjection(session):
+    """REVEAL_NEXT_FOLLOWUP: <text> both reveals and emits an interjection."""
+    mock_llm = AsyncMock()
+    mock_llm.complete = AsyncMock(return_value="REVEAL_NEXT_FOLLOWUP: Now let's add a twist.")
+    emitted = []
+    revealed = []
+
+    loop = AgentLoop(
+        session=session,
+        llm=mock_llm,
+        min_interjection_gap_seconds=0,
+        on_interjection=lambda i: emitted.append(i),
+        on_follow_up_revealed=lambda: revealed.append(True),
+    )
+
+    await loop.on_speech_pause()
+
+    assert len(session.snapshot.revealed_follow_up_timestamps) == 1
+    assert len(revealed) == 1
+    assert len(emitted) == 1
+    assert emitted[0].text == "Now let's add a twist."
+
+
+@pytest.mark.asyncio
+async def test_reveal_next_followup_does_not_exceed_total(session):
+    """Agent cannot reveal more follow-ups than exist."""
+    mock_llm = AsyncMock()
+    mock_llm.complete = AsyncMock(return_value="REVEAL_NEXT_FOLLOWUP")
+    revealed = []
+
+    loop = AgentLoop(
+        session=session,
+        llm=mock_llm,
+        min_interjection_gap_seconds=0,
+        on_interjection=lambda i: None,
+        on_follow_up_revealed=lambda: revealed.append(True),
+    )
+
+    # session.plan has 2 follow_ups — try to reveal 3 times
+    await loop.on_speech_pause()
+    loop._last_interjection_at = None  # reset cooldown
+    await loop.on_speech_pause()
+    loop._last_interjection_at = None
+    await loop.on_speech_pause()
+
+    assert len(session.snapshot.revealed_follow_up_timestamps) == 2
+    assert len(revealed) == 2
+
+
+@pytest.mark.asyncio
+async def test_system_prompt_includes_agent_briefing(session):
+    """agent_briefing and rubric are appended to the system prompt."""
+    mock_llm = AsyncMock()
+    mock_llm.complete = AsyncMock(return_value="NO")
+
+    loop = AgentLoop(
+        session=session,
+        llm=mock_llm,
+        min_interjection_gap_seconds=0,
+        on_interjection=lambda i: None,
+    )
+
+    await loop.on_speech_pause()
+
+    call_kwargs = mock_llm.complete.call_args.kwargs
+    system_prompt = call_kwargs["system_prompt"]
+    assert "INTERVIEW BRIEF:" in system_prompt
+    assert "hash map" in system_prompt  # from agent_briefing fixture
+    assert "RUBRIC:" in system_prompt
+
+
+def test_build_context_has_follow_up_state_header():
+    """Context includes FOLLOW-UPS REVEALED count when a plan is loaded."""
+    plan = InterviewPlan(
+        problem_markdown="## Problem",
+        follow_ups=["Follow-up 1", "Follow-up 2"],
+        agent_briefing="Brief.",
+        rubric="Rubric.",
+    )
+    mgr = SessionManager()
+    mgr.start(watch_path="/foo/main.py")
+    mgr.set_plan(plan)
+
+    loop = AgentLoop(
+        session=mgr, llm=AsyncMock(),
+        min_interjection_gap_seconds=0, on_interjection=lambda i: None,
+    )
+    context = loop._build_context()
+
+    assert "FOLLOW-UPS REVEALED: 0 of 2" in context
