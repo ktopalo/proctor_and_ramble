@@ -42,12 +42,9 @@ class AgentLoop:
         parts = []
 
         if snap.plan:
-            parts.append(f"PROBLEM: {snap.plan.problem_statement}")
-            if snap.plan.constraints:
-                parts.append("CONSTRAINTS:\n" + "\n".join(f"- {c}" for c in snap.plan.constraints))
-            if snap.plan.hints:
-                hints_text = "\n".join(f"- (level {h.level}) {h.text}" for h in snap.plan.hints)
-                parts.append(f"HINTS (for your reference only — do not reveal):\n{hints_text}")
+            parts.append(f"PROBLEM:\n{snap.plan.problem_markdown}")
+            if snap.plan.agent_briefing:
+                parts.append(f"AGENT BRIEFING:\n{snap.plan.agent_briefing}")
 
         if snap.started_at:
             secs = int((datetime.now(timezone.utc) - snap.started_at).total_seconds())
