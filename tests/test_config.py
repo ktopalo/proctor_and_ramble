@@ -8,7 +8,7 @@ def test_load_config_from_file(tmp_path):
     cfg_file.write_text(yaml.dump({
         "stt": {"engine": "mlx_whisper", "model": "mlx-community/whisper-large-v3-mlx", "speech_pause_threshold_seconds": 3},
         "llm": {"provider": "openai", "model": "gpt-4o"},
-        "agent": {"min_seconds_between_interjections": 30, "context_transcript_chunks": 20, "context_recent_deltas": 5},
+        "agent": {"min_seconds_between_interjections": 30},
         "server": {"host": "127.0.0.1", "port": 8000},
         "frontend": {"port": 5173},
     }))

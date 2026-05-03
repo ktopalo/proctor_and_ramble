@@ -16,8 +16,6 @@ class LLMConfig(BaseModel):
 
 class AgentConfig(BaseModel):
     min_seconds_between_interjections: int = 30
-    context_transcript_chunks: int = 20
-    context_recent_deltas: int = 5
 
 
 class ServerConfig(BaseModel):

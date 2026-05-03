@@ -54,21 +54,3 @@ def test_end_sets_ended_at(manager):
     manager.start(watch_path="/foo")
     manager.end()
     assert manager.snapshot.ended_at is not None
-
-
-def test_recent_transcript_chunks(manager):
-    manager.start(watch_path="/foo")
-    for i in range(25):
-        manager.add_transcript_chunk(TranscriptChunk(text=f"chunk {i}", duration_seconds=1.0))
-    recent = manager.recent_transcript_chunks(n=20)
-    assert len(recent) == 20
-    assert recent[-1].text == "chunk 24"
-
-
-def test_recent_deltas(manager):
-    manager.start(watch_path="/foo")
-    for i in range(10):
-        manager.add_file_delta(FileDelta(path="/foo", diff=f"+ line {i}"))
-    recent = manager.recent_deltas(n=5)
-    assert len(recent) == 5
-    assert recent[-1].diff == "+ line 9"

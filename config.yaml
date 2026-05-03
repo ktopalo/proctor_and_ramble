@@ -12,9 +12,7 @@ llm:
   codex_path: codex  # path to codex binary if not on PATH
 
 agent:
-  min_seconds_between_interjections: 5
-  context_transcript_chunks: 50
-  context_recent_deltas: 50
+  min_seconds_between_interjections: 15
 
 server:
   host: 127.0.0.1

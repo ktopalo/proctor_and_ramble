@@ -31,8 +31,3 @@ class SessionManager:
     def add_interjection(self, interjection: Interjection) -> None:
         self.snapshot.interjections.append(interjection)
 
-    def recent_transcript_chunks(self, n: int) -> list[TranscriptChunk]:
-        return self.snapshot.transcript[-n:]
-
-    def recent_deltas(self, n: int) -> list[FileDelta]:
-        return self.snapshot.deltas[-n:]
