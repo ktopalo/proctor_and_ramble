@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { useSession } from '../hooks/useSession'
 import type { InterviewPlan } from '../types/session'
+import { Spinner } from '../components/Spinner'
 
 interface Props {
   onStart: (durationSeconds: number) => void
@@ -284,7 +285,7 @@ export default function Setup({ onStart }: Props) {
               flexShrink: 0,
             }}
           >
-            {loading && !planLoaded ? '...' : planLoaded ? '✓ Loaded' : 'Load'}
+            {loading && !planLoaded ? <Spinner /> : planLoaded ? '✓ Loaded' : 'Load'}
           </button>
         </div>
       </div>
