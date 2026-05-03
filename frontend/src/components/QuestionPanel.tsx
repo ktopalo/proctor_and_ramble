@@ -1,4 +1,5 @@
 import type { InterviewPlan } from '../types/session'
+import { MarkdownText } from './MarkdownText'
 
 interface Props {
   plan: InterviewPlan | null
@@ -32,9 +33,9 @@ export default function QuestionPanel({ plan }: Props) {
       }}>
         Problem
       </div>
-      <p style={{ color: 'rgba(255,255,255,0.95)', lineHeight: 1.7, margin: '0 0 24px', fontSize: 14 }}>
+      <MarkdownText style={{ color: 'rgba(255,255,255,0.95)', fontSize: 14, marginBottom: 24 }}>
         {plan.problem_statement}
-      </p>
+      </MarkdownText>
 
       {plan.constraints.length > 0 && (
         <>

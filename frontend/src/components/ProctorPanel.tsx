@@ -1,4 +1,5 @@
 import type { Interjection } from '../types/session'
+import { MarkdownText } from './MarkdownText'
 
 interface Props {
   interjections: Interjection[]
@@ -46,9 +47,9 @@ export default function ProctorPanel({ interjections }: Props) {
             borderRadius: 10,
             padding: '12px 16px',
           }}>
-            <p style={{ margin: 0, lineHeight: 1.6, color: 'rgba(255,255,255,0.95)', fontSize: 13 }}>
+            <MarkdownText style={{ color: 'rgba(255,255,255,0.95)', fontSize: 13 }}>
               {item.text}
-            </p>
+            </MarkdownText>
             <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 6, display: 'block' }}>
               {timeAgo(item.timestamp)}
             </span>

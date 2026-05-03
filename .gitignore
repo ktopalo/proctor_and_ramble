@@ -25,3 +25,6 @@ frontend/.vite/
 # IDE
 .vscode/
 .idea/
+
+# Git worktrees
+.worktrees/

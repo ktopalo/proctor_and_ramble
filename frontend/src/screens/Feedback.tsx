@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import ExportButton from '../components/ExportButton'
+import { MarkdownText } from '../components/MarkdownText'
 import { useSession } from '../hooks/useSession'
 import type { SessionSnapshot } from '../types/session'
 
@@ -178,12 +179,9 @@ export default function Feedback({ onReset }: Props) {
               }}>
                 Feedback
               </div>
-              <pre style={{
-                whiteSpace: 'pre-wrap', lineHeight: 1.7,
-                fontSize: 13, color: 'rgba(255,255,255,0.8)', margin: 0,
-              }}>
+              <MarkdownText style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>
                 {feedback}
-              </pre>
+              </MarkdownText>
             </div>
           )}
         </div>
