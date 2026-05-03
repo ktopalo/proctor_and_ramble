@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import os
+import tkinter as tk
+from tkinter import filedialog
 from typing import Any
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -112,6 +114,21 @@ app.add_middleware(
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/browse")
+async def browse_path(type: str = "file"):
+    root = tk.Tk()
+    root.withdraw()
+    root.wm_attributes('-topmost', True)
+    if type == "folder":
+        path = filedialog.askdirectory()
+    else:
+        path = filedialog.askopenfilename()
+    root.destroy()
+    if not path:
+        return {"path": None}
+    return {"path": path}
 
 
 class LoadQuestionRequest(BaseModel):

@@ -189,6 +189,7 @@ export default function Setup({ onStart }: Props) {
   const [loading, setLoading] = useState(false)
   const [planLoaded, setPlanLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [browsing, setBrowsing] = useState(false)
 
   const { snapshot, loadQuestion, startSession } = useSession()
 
@@ -215,6 +216,17 @@ export default function Setup({ onStart }: Props) {
     } catch {
       setError('Failed to start session.')
       setLoading(false)
+    }
+  }
+
+  const handleBrowse = async () => {
+    setBrowsing(true)
+    try {
+      const res = await fetch('/api/browse?type=folder')
+      const data = await res.json()
+      if (data.path) setWatchPath(data.path)
+    } finally {
+      setBrowsing(false)
     }
   }
 
@@ -284,13 +296,33 @@ export default function Setup({ onStart }: Props) {
       <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 10, marginBottom: 16 }}>
         <div>
           <label style={LABEL}>Watch path (file or folder)</label>
-          <input
-            type="text"
-            value={watchPath}
-            onChange={e => setWatchPath(e.target.value)}
-            placeholder="/Users/you/projects/solution.py"
-            style={GLASS_INPUT}
-          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              value={watchPath}
+              onChange={e => setWatchPath(e.target.value)}
+              placeholder="/Users/you/projects/solution.py"
+              style={GLASS_INPUT}
+            />
+            <button
+              onClick={handleBrowse}
+              disabled={browsing}
+              style={{
+                padding: '0 12px',
+                height: '36px',
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: 6,
+                color: 'rgba(255,255,255,0.7)',
+                fontSize: 12,
+                cursor: browsing ? 'not-allowed' : 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {browsing ? '...' : 'Browse'}
+            </button>
+          </div>
         </div>
         <div>
           <label style={LABEL}>Duration (min)</label>
