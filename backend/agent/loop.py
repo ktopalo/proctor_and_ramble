@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Callable
 from backend.session.manager import SessionManager
 from backend.engines.llm_base import BaseLLMClient
@@ -40,7 +39,6 @@ class AgentLoop:
 
     def _build_context(self) -> str:
         snap = self._session.snapshot
-
         parts = []
 
         if snap.plan:
@@ -55,34 +53,9 @@ class AgentLoop:
             secs = int((datetime.now(timezone.utc) - snap.started_at).total_seconds())
             parts.append(f"TIME ELAPSED: {secs // 60}m {secs % 60}s")
 
-        events: list[tuple[datetime, str]] = []
-
-        for chunk in snap.transcript:
-            events.append((chunk.timestamp, f"SPEECH: {chunk.text}"))
-
-        for delta in snap.deltas:
-            lines = delta.diff.splitlines()
-            added = sum(1 for l in lines if l.startswith("+ "))
-            removed = sum(1 for l in lines if l.startswith("- "))
-            name = Path(delta.path).name
-            indented = "\n".join("  " + l for l in lines)
-            events.append((delta.timestamp, f"CODE {name} (+{added} -{removed}):\n{indented}"))
-
-        for interjection in snap.interjections:
-            events.append((interjection.timestamp, f"PROCTOR: {interjection.text}"))
-
-        events.sort(key=lambda e: e[0])
-
-        if events:
-            timeline_lines = []
-            for ts, content in events:
-                if snap.started_at:
-                    offset = max(0, int((ts - snap.started_at).total_seconds()))
-                    prefix = f"[{offset // 60:02d}:{offset % 60:02d}]"
-                else:
-                    prefix = "[??:??]"
-                timeline_lines.append(f"{prefix} {content}")
-            parts.append("TIMELINE:\n" + "\n".join(timeline_lines))
+        timeline = self._session.timeline_text
+        if timeline:
+            parts.append(timeline)
 
         return "\n\n".join(parts)
 
