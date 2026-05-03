@@ -20,3 +20,10 @@ server:
 
 frontend:
   port: 5173
+
+tts:
+  enabled: true
+  provider: elevenlabs
+  voice_id: Rachel
+  model_id: eleven_monolingual_v1
+  model_path: models/piper/en_US-amy-medium.onnx

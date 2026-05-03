@@ -27,12 +27,21 @@ class FrontendConfig(BaseModel):
     port: int = 5173
 
 
+class TTSConfig(BaseModel):
+    enabled: bool = True
+    provider: str = "elevenlabs"
+    voice_id: str = "Rachel"
+    model_id: str = "eleven_monolingual_v1"
+    model_path: str = "models/piper/en_US-amy-medium.onnx"
+
+
 class AppConfig(BaseModel):
     stt: STTConfig
     llm: LLMConfig
     agent: AgentConfig = AgentConfig()
     server: ServerConfig = ServerConfig()
     frontend: FrontendConfig = FrontendConfig()
+    tts: TTSConfig = TTSConfig()
 
 
 def load_config(path: str = "config.yaml") -> AppConfig:
