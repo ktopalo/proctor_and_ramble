@@ -61,14 +61,28 @@ Opens with explicit framing as a technical coding interview for a software engin
 
 ### System prompt composition
 
-`agent_briefing` and `rubric` are pulled from `session.snapshot.plan` at call time and prepended to the agent's system prompt. No constructor change to `AgentLoop` is needed — the plan is already accessible via `self._session`. They do not repeat in the per-turn context message.
+`get_prompt()` returns the static behavioral instructions (stay silent, when to intervene, tone). At call time in `_maybe_intervene`, `agent_briefing` and `rubric` are appended after the static prompt, separated by a clear header:
 
-### Per-turn context
+```
+[static PROCTOR_SYSTEM_PROMPT]
 
-- Elapsed time
-- Recent transcript chunks
-- Recent file diffs
-- Currently revealed follow-ups (so the agent knows what the candidate has already been shown)
+---
+
+INTERVIEW BRIEF:
+{plan.agent_briefing}
+
+RUBRIC:
+{plan.rubric}
+```
+
+No constructor change to `AgentLoop` is needed — the plan is accessible via `self._session.snapshot.plan`.
+
+### Per-turn context (`_build_context`)
+
+The existing PROBLEM / CONSTRAINTS / HINTS block is removed — that information now lives in the system prompt via `agent_briefing`. The per-turn context becomes:
+
+- **State header** — elapsed time, `revealed_follow_up_count / total_follow_ups`, and the text of already-revealed follow-ups so the agent knows what the candidate has already been shown
+- **Timeline** — the existing chronological interleaved log of SPEECH, CODE diffs, and PROCTOR interjections with relative timestamps. This is preserved exactly as-is.
 
 ### Reveal signal
 
@@ -80,12 +94,16 @@ The agent can return one of three response formats:
 | `<interjection text>` | Intervene with this text, no follow-up reveal |
 | `REVEAL_NEXT_FOLLOWUP: <optional interjection text>` | Reveal the next follow-up in the UI and optionally deliver an interjection |
 
-When `REVEAL_NEXT_FOLLOWUP` is received, the loop:
+`REVEAL_NEXT_FOLLOWUP` is parsed first in `_maybe_intervene`, before the `"NO"` check. When received, the loop:
 1. Increments `revealed_follow_up_count` on the session
 2. Emits a `follow_up_revealed` WebSocket event
-3. If interjection text is present, also emits an `interjection` event
+3. If interjection text follows the colon, also emits an `interjection` event
 
-Follow-ups are revealed when the candidate asks questions that warrant revealing a deferred constraint or follow-on challenge — the agent decides this based on the briefing's guidance. The per-turn context always includes `revealed_follow_up_count` and `total_follow_ups` so the agent knows when all follow-ups are exhausted and stops emitting `REVEAL_NEXT_FOLLOWUP`.
+Follow-ups are revealed when the candidate asks questions that warrant revealing a deferred constraint or follow-on challenge — the agent decides this based on the briefing's guidance. The state header always includes `revealed_follow_up_count` and `total_follow_ups` so the agent knows when all follow-ups are exhausted and stops emitting `REVEAL_NEXT_FOLLOWUP`.
+
+### `prompts.py` change
+
+The agent instructions gain a new paragraph explaining the `REVEAL_NEXT_FOLLOWUP` response format and when to use it — appended to the existing behavioral spec, not replacing it.
 
 ## Frontend
 
