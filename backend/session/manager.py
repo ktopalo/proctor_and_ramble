@@ -1,5 +1,5 @@
 import bisect
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from backend.session.models import (
     TranscriptChunk, FileDelta, Interjection,
@@ -53,6 +53,17 @@ class SessionManager:
         prefix = self._render_offset(interjection.timestamp)
         line = f"{prefix} PROCTOR: {interjection.text}"
         bisect.insort(self._timeline_events, (interjection.timestamp, line))
+
+    def reveal_next_follow_up(self, follow_up_text: str) -> None:
+        now = datetime.now(timezone.utc)
+        if self._timeline_events:
+            last_ts = self._timeline_events[-1][0]
+            if last_ts >= now:
+                now = last_ts + timedelta(microseconds=1)
+        self.snapshot.revealed_follow_up_timestamps.append(now)
+        prefix = self._render_offset(now)
+        line = f"{prefix} FOLLOW_UP_REVEALED: {follow_up_text}"
+        bisect.insort(self._timeline_events, (now, line))
 
     @property
     def timeline_text(self) -> str:

@@ -116,3 +116,39 @@ def test_timeline_events_reset_on_start():
     ))
     mgr.start(watch_path="/foo/main.py")
     assert mgr.timeline_text == ""
+
+
+def test_reveal_next_follow_up_increments_timestamps(manager):
+    manager.start(watch_path="/foo")
+    assert len(manager.snapshot.revealed_follow_up_timestamps) == 0
+    manager.reveal_next_follow_up("What if sorted?")
+    assert len(manager.snapshot.revealed_follow_up_timestamps) == 1
+    manager.reveal_next_follow_up("O(1) space?")
+    assert len(manager.snapshot.revealed_follow_up_timestamps) == 2
+
+
+def test_reveal_next_follow_up_appears_in_timeline():
+    """reveal_next_follow_up inserts a FOLLOW_UP_REVEALED entry into the timeline."""
+    plan = InterviewPlan(
+        problem_markdown="## Problem",
+        follow_ups=["What if sorted?", "O(1) space?"],
+        agent_briefing="Use hash map.",
+        rubric="Correctness.",
+    )
+    mgr = SessionManager()
+    mgr.start(watch_path="/foo/main.py")
+    mgr.set_plan(plan)
+    t0 = mgr.snapshot.started_at
+
+    mgr.add_transcript_chunk(TranscriptChunk(
+        text="I think I have a solution",
+        timestamp=t0 + timedelta(seconds=30),
+        duration_seconds=2.0,
+    ))
+    mgr.reveal_next_follow_up("What if sorted?")
+
+    timeline = mgr.timeline_text
+    assert "FOLLOW_UP_REVEALED: What if sorted?" in timeline
+    speech_pos = timeline.index("[00:30] SPEECH:")
+    reveal_pos = timeline.index("FOLLOW_UP_REVEALED:")
+    assert speech_pos < reveal_pos
