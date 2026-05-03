@@ -4,7 +4,7 @@ import os
 import tempfile
 import time
 from typing import AsyncIterator
-from backend.engines.llm_base import BaseLLMClient
+from backend.engines.llm.llm_base import BaseLLMClient
 
 # Ensure Homebrew bin is on PATH so `codex` is found when running as a subprocess
 _ENV = {**os.environ, "PATH": f"/opt/homebrew/bin:{os.environ.get('PATH', '')}"}

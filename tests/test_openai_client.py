@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from backend.engines.llm_base import BaseLLMClient
-from backend.engines.openai_client import OpenAIClient
+from backend.engines.llm.llm_base import BaseLLMClient
+from backend.engines.llm.openai_client import OpenAIClient
 
 
 def test_openai_client_is_base():
@@ -13,7 +13,7 @@ async def test_complete_returns_string():
     mock_response = MagicMock()
     mock_response.choices[0].message.content = "Hello from mock"
 
-    with patch("backend.engines.openai_client.AsyncOpenAI") as mock_cls:
+    with patch("backend.engines.llm.openai_client.AsyncOpenAI") as mock_cls:
         mock_client = AsyncMock()
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
         mock_cls.return_value = mock_client
@@ -32,7 +32,7 @@ async def test_complete_includes_system_prompt():
     mock_response = MagicMock()
     mock_response.choices[0].message.content = "ok"
 
-    with patch("backend.engines.openai_client.AsyncOpenAI") as mock_cls:
+    with patch("backend.engines.llm.openai_client.AsyncOpenAI") as mock_cls:
         mock_client = AsyncMock()
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
         mock_cls.return_value = mock_client

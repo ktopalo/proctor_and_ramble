@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Callable
 from backend.session.manager import SessionManager
-from backend.engines.llm_base import BaseLLMClient
+from backend.engines.llm.llm_base import BaseLLMClient
 from backend.session.models import Interjection
 from backend.agent.prompts import get_prompt
 

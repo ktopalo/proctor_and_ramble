@@ -10,11 +10,11 @@ from dotenv import load_dotenv
 from backend.config import load_config
 from backend.session.manager import SessionManager
 from backend.session.models import Interjection, TranscriptChunk
-from backend.engines.openai_client import OpenAIClient
-from backend.engines.codex_cli_client import CodexCLIClient
-from backend.engines.llm_base import BaseLLMClient
-from backend.engines.stt_base import BaseSTTEngine
-from backend.engines.mlx_whisper import MLXWhisperEngine
+from backend.engines.llm.openai_client import OpenAIClient
+from backend.engines.llm.codex_cli_client import CodexCLIClient
+from backend.engines.llm.llm_base import BaseLLMClient
+from backend.engines.stt.stt_base import BaseSTTEngine
+from backend.engines.stt.mlx_whisper import MLXWhisperEngine
 from backend.question.loader import load_question
 from backend.watcher.file_watcher import FileWatcher
 from backend.agent.loop import AgentLoop
@@ -57,7 +57,7 @@ def _build_stt() -> BaseSTTEngine:
             pause_threshold_seconds=config.stt.speech_pause_threshold_seconds,
         )
     if config.stt.engine == "groq_whisper":
-        from backend.engines.groq_whisper import GroqWhisperEngine
+        from backend.engines.stt.groq_whisper import GroqWhisperEngine
         return GroqWhisperEngine(
             model=config.stt.model,
             pause_threshold_seconds=config.stt.speech_pause_threshold_seconds,

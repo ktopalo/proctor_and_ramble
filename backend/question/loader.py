@@ -2,7 +2,7 @@ import json
 import logging
 from html.parser import HTMLParser
 import httpx
-from backend.engines.llm_base import BaseLLMClient
+from backend.engines.llm.llm_base import BaseLLMClient
 from backend.session.models import InterviewPlan
 
 log = logging.getLogger(__name__)

@@ -1,5 +1,5 @@
 import pytest
-from backend.engines.stt_base import BaseSTTEngine
+from backend.engines.stt.stt_base import BaseSTTEngine
 from backend.session.models import TranscriptChunk
 
 
@@ -20,6 +20,9 @@ class MockSTTEngine(BaseSTTEngine):
 
     def set_on_speech_pause(self, callback):
         self._pause_cb = callback
+
+    def transcribe(self, audio) -> str:
+        return ""
 
     async def simulate_transcript(self, text: str):
         if self._transcript_cb:

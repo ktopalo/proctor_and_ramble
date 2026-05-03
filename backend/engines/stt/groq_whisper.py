@@ -6,7 +6,7 @@ import wave
 import numpy as np
 from groq import Groq
 
-from backend.engines.stt_base import BaseSTTEngine, _SAMPLE_RATE
+from backend.engines.stt.stt_base import BaseSTTEngine, _SAMPLE_RATE
 
 log = logging.getLogger(__name__)
 

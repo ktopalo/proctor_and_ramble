@@ -2,7 +2,7 @@ import logging
 import time
 from typing import AsyncIterator
 from openai import AsyncOpenAI
-from backend.engines.llm_base import BaseLLMClient
+from backend.engines.llm.llm_base import BaseLLMClient
 
 log = logging.getLogger(__name__)
 

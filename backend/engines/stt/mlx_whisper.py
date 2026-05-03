@@ -3,7 +3,7 @@ import logging
 import mlx_whisper as _mlx_whisper
 import numpy as np
 
-from backend.engines.stt_base import BaseSTTEngine
+from backend.engines.stt.stt_base import BaseSTTEngine
 
 log = logging.getLogger(__name__)
 
