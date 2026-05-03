@@ -8,11 +8,12 @@ export type Screen = 'setup' | 'interview' | 'feedback'
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('setup')
+  const [timerDuration, setTimerDuration] = useState<number>(45 * 60)
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {screen === 'setup' && <Setup onStart={() => setScreen('interview')} />}
-      {screen === 'interview' && <Interview onEnd={() => setScreen('feedback')} />}
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {screen === 'setup' && <Setup onStart={(durationSeconds) => { setTimerDuration(durationSeconds); setScreen('interview') }} />}
+      {screen === 'interview' && <Interview onEnd={() => setScreen('feedback')} timerDuration={timerDuration} />}
       {screen === 'feedback' && <Feedback onReset={() => setScreen('setup')} />}
     </div>
   )

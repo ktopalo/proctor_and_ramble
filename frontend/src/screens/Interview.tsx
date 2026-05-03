@@ -7,9 +7,10 @@ import { useSession } from '../hooks/useSession'
 
 interface Props {
   onEnd: () => void
+  timerDuration: number
 }
 
-export default function Interview({ onEnd }: Props) {
+export default function Interview({ onEnd, timerDuration }: Props) {
   const { snapshot, connected, endSession, fetchSnapshot } = useSession()
 
   // Populate plan + session state that was set up during Setup screen
@@ -20,20 +21,31 @@ export default function Interview({ onEnd }: Props) {
     onEnd()
   }
 
+  const glassPanel = {
+    background: 'rgba(255,255,255,0.07)',
+    border: '1px solid rgba(255,255,255,0.12)',
+    borderRadius: 12,
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+  } as const
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', padding: 16, gap: 12, boxSizing: 'border-box' }}>
       {/* Header */}
       <div style={{
+        ...glassPanel,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 24px', borderBottom: '1px solid #e5e7eb', flexShrink: 0,
+        padding: '12px 20px', flexShrink: 0,
       }}>
-        <span style={{ fontWeight: 700, fontSize: 16 }}>Proctor & Ramble</span>
-        <Timer startedAt={snapshot.started_at} />
+        <span style={{ color: 'rgba(255,255,255,0.95)', fontWeight: 700, fontSize: 15 }}>
+          Proctor &amp; Ramble
+        </span>
+        <Timer startedAt={snapshot.started_at} durationSeconds={timerDuration} />
         <button
           onClick={handleEnd}
           style={{
-            padding: '6px 16px', borderRadius: 6, border: '1px solid #e5e7eb',
-            background: '#fff', cursor: 'pointer', fontSize: 14,
+            background: 'rgba(255,255,255,0.88)', color: '#0d1b3e', border: 'none',
+            borderRadius: 8, padding: '7px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer',
           }}
         >
           End Interview
@@ -41,24 +53,31 @@ export default function Interview({ onEnd }: Props) {
       </div>
 
       {/* Main panels */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <div style={{ flex: '0 0 60%', borderRight: '1px solid #e5e7eb', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, gap: 12, overflow: 'hidden' }}>
+        <div style={{ ...glassPanel, flex: '0 0 60%', overflow: 'hidden' }}>
           <QuestionPanel plan={snapshot.plan} />
         </div>
-        <div style={{ flex: '0 0 40%', overflow: 'hidden' }}>
+        <div style={{ ...glassPanel, flex: '0 0 40%', overflow: 'hidden' }}>
           <ProctorPanel interjections={snapshot.interjections} />
         </div>
       </div>
 
       {/* Status bar */}
       <div style={{
-        padding: '8px 24px', borderTop: '1px solid #e5e7eb', fontSize: 12,
-        color: '#6b7280', display: 'flex', gap: 16, flexShrink: 0,
+        background: 'rgba(255,255,255,0.05)',
+        border: '1px solid rgba(255,255,255,0.12)',
+        borderRadius: 8,
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        display: 'flex', alignItems: 'center', gap: 16,
+        padding: '8px 16px', fontSize: 12, flexShrink: 0,
       }}>
-        <span style={{ color: connected ? '#16a34a' : '#dc2626' }}>
+        <span style={{ color: connected ? '#34d399' : '#f87171' }}>
           {connected ? '● Connected' : '○ Disconnected'}
         </span>
-        {snapshot.watch_path && <span>watching: {snapshot.watch_path}</span>}
+        {snapshot.watch_path && (
+          <span style={{ color: 'rgba(255,255,255,0.45)' }}>watching: {snapshot.watch_path}</span>
+        )}
       </div>
     </div>
   )

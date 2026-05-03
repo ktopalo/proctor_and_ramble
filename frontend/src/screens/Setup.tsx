@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSession } from '../hooks/useSession'
 
 interface Props {
-  onStart: () => void
+  onStart: (durationSeconds: number) => void
 }
 
 export default function Setup({ onStart }: Props) {
@@ -33,7 +33,7 @@ export default function Setup({ onStart }: Props) {
     setLoading(true)
     try {
       await startSession(watchPath)
-      onStart()
+      onStart(45 * 60)
     } catch (e) {
       setError('Failed to start session.')
       setLoading(false)
