@@ -1,18 +1,196 @@
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import { useSession } from '../hooks/useSession'
+import type { InterviewPlan } from '../types/session'
 
 interface Props {
   onStart: (durationSeconds: number) => void
 }
 
+const GLASS_INPUT = {
+  padding: '10px 14px',
+  fontSize: 13,
+  background: 'rgba(255,255,255,0.07)',
+  border: '1px solid rgba(255,255,255,0.12)',
+  borderRadius: 8,
+  color: 'rgba(255,255,255,0.9)',
+  width: '100%',
+} as const
+
+const LABEL = {
+  color: 'rgba(255,255,255,0.45)',
+  fontSize: 10,
+  fontWeight: 600,
+  textTransform: 'uppercase' as const,
+  letterSpacing: '1.5px',
+  marginBottom: 6,
+  display: 'block',
+} as const
+
+function SpoilerRow({
+  label,
+  count,
+  open,
+  onToggle,
+  children,
+}: {
+  label: string
+  count: number
+  open: boolean
+  onToggle: () => void
+  children: ReactNode
+}) {
+  return (
+    <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 8 }}>
+      <div
+        onClick={onToggle}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          cursor: 'pointer',
+          paddingBottom: open ? 8 : 0,
+          userSelect: 'none',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            background: 'rgba(255,200,100,0.15)',
+            border: '1px solid rgba(255,200,100,0.25)',
+            borderRadius: 4,
+            padding: '1px 6px',
+            color: 'rgba(255,200,100,0.7)',
+            fontSize: 9,
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+          }}>spoiler</span>
+          <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+            {label} ({count})
+          </span>
+        </div>
+        <span style={{
+          color: 'rgba(255,255,255,0.3)',
+          fontSize: 11,
+          display: 'inline-block',
+          transform: open ? 'rotate(90deg)' : 'none',
+          transition: 'transform 0.15s',
+        }}>▸</span>
+      </div>
+      {open && (
+        <div style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          borderRadius: 8,
+          padding: '10px 12px',
+        }}>
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function QuestionPreview({ plan }: { plan: InterviewPlan }) {
+  const [open, setOpen] = useState<Record<string, boolean>>({})
+  const toggle = (key: string) => setOpen(prev => ({ ...prev, [key]: !prev[key] }))
+
+  return (
+    <div style={{
+      background: 'rgba(96,208,255,0.05)',
+      border: '1px solid rgba(96,208,255,0.18)',
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 20,
+    }}>
+      <div style={{
+        color: '#60d0ff',
+        fontSize: 9,
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        letterSpacing: '1.5px',
+        marginBottom: 10,
+      }}>
+        ✦ Question understood
+      </div>
+      <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, lineHeight: 1.6, margin: '0 0 12px' }}>
+        {plan.problem_statement}
+      </p>
+      {plan.constraints.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 12 }}>
+          {plan.constraints.map((c, i) => (
+            <span key={i} style={{
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 4,
+              padding: '3px 8px',
+              color: 'rgba(255,255,255,0.45)',
+              fontSize: 11,
+            }}>{c}</span>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <SpoilerRow
+          label="Hints"
+          count={plan.hints.length}
+          open={!!open.hints}
+          onToggle={() => toggle('hints')}
+        >
+          <ul style={{ margin: 0, padding: '0 0 0 16px' }}>
+            {plan.hints.map((h, i) => (
+              <li key={i} style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 1.6 }}>
+                {h.text}
+              </li>
+            ))}
+          </ul>
+        </SpoilerRow>
+        <SpoilerRow
+          label="Expected approaches"
+          count={plan.expected_approaches.length}
+          open={!!open.approaches}
+          onToggle={() => toggle('approaches')}
+        >
+          <ul style={{ margin: 0, padding: '0 0 0 16px' }}>
+            {plan.expected_approaches.map((a, i) => (
+              <li key={i} style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 1.6 }}>{a}</li>
+            ))}
+          </ul>
+        </SpoilerRow>
+        <SpoilerRow
+          label="Rubric"
+          count={Object.keys(plan.rubric).length}
+          open={!!open.rubric}
+          onToggle={() => toggle('rubric')}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {Object.entries(plan.rubric).map(([k, v]) => (
+              <div key={k} style={{ display: 'flex', gap: 10 }}>
+                <span style={{
+                  color: 'rgba(255,255,255,0.55)',
+                  fontSize: 12,
+                  minWidth: 110,
+                  textTransform: 'capitalize',
+                }}>{k}</span>
+                <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </SpoilerRow>
+      </div>
+    </div>
+  )
+}
+
 export default function Setup({ onStart }: Props) {
   const [url, setUrl] = useState('')
   const [watchPath, setWatchPath] = useState('')
+  const [durationMinutes, setDurationMinutes] = useState(45)
   const [loading, setLoading] = useState(false)
   const [planLoaded, setPlanLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { loadQuestion, startSession } = useSession()
+  const { snapshot, loadQuestion, startSession } = useSession()
 
   const handleLoadQuestion = async () => {
     if (!url) return
@@ -21,7 +199,7 @@ export default function Setup({ onStart }: Props) {
     try {
       await loadQuestion(url)
       setPlanLoaded(true)
-    } catch (e) {
+    } catch {
       setError('Failed to load question. Check the URL and try again.')
     } finally {
       setLoading(false)
@@ -29,69 +207,121 @@ export default function Setup({ onStart }: Props) {
   }
 
   const handleStart = async () => {
-    if (!watchPath) return
+    if (!watchPath || !planLoaded) return
     setLoading(true)
     try {
       await startSession(watchPath)
-      onStart(45 * 60)
-    } catch (e) {
+      onStart(durationMinutes * 60)
+    } catch {
       setError('Failed to start session.')
       setLoading(false)
     }
   }
 
-  return (
-    <div style={{ maxWidth: 560, margin: '80px auto', padding: '0 24px' }}>
-      <h1 style={{ marginBottom: 8 }}>Proctor & Ramble</h1>
-      <p style={{ color: '#666', marginBottom: 40 }}>AI-powered technical interview proctor</p>
+  const canStart = planLoaded && watchPath.length > 0 && !loading
 
-      <section style={{ marginBottom: 32 }}>
-        <label style={{ display: 'block', fontWeight: 600, marginBottom: 8 }}>
-          Interview question URL
-        </label>
+  return (
+    <div style={{
+      maxWidth: 560,
+      margin: '60px auto',
+      padding: '0 24px',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+    }}>
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: 36 }}>
+        <h1 style={{
+          color: 'rgba(255,255,255,0.95)',
+          margin: '0 0 6px',
+          fontSize: 28,
+          fontWeight: 700,
+          letterSpacing: '-0.5px',
+        }}>
+          Proctor & Ramble
+        </h1>
+        <p style={{ color: 'rgba(255,255,255,0.35)', margin: 0, fontSize: 13 }}>
+          AI-powered technical interview proctor
+        </p>
+      </div>
+
+      {/* URL input */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={LABEL}>Interview question URL</label>
         <div style={{ display: 'flex', gap: 8 }}>
           <input
             type="url"
             value={url}
-            onChange={(e) => setUrl(e.target.value)}
+            onChange={e => setUrl(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLoadQuestion()}
             placeholder="https://leetcode.com/problems/two-sum/"
-            style={{ flex: 1, padding: '8px 12px', fontSize: 14, border: '1px solid #ccc', borderRadius: 6 }}
-            onKeyDown={(e) => e.key === 'Enter' && handleLoadQuestion()}
+            style={GLASS_INPUT}
           />
           <button
             onClick={handleLoadQuestion}
             disabled={!url || loading}
-            style={{ padding: '8px 16px', cursor: 'pointer', borderRadius: 6, border: 'none', background: '#0070f3', color: '#fff', fontWeight: 600 }}
+            style={{
+              padding: '10px 16px',
+              borderRadius: 8,
+              border: 'none',
+              background: planLoaded ? 'rgba(96,208,255,0.15)' : 'rgba(255,255,255,0.88)',
+              color: planLoaded ? '#60d0ff' : '#0d1b3e',
+              fontWeight: 700,
+              fontSize: 13,
+              cursor: !url || loading ? 'not-allowed' : 'pointer',
+              whiteSpace: 'nowrap',
+              opacity: !url || (loading && !planLoaded) ? 0.6 : 1,
+              flexShrink: 0,
+            }}
           >
-            {loading ? '...' : 'Load'}
+            {loading && !planLoaded ? '...' : planLoaded ? '✓ Loaded' : 'Load'}
           </button>
         </div>
-        {planLoaded && <p style={{ color: '#16a34a', marginTop: 8, fontSize: 13 }}>✓ Question loaded</p>}
-      </section>
+      </div>
 
-      <section style={{ marginBottom: 32 }}>
-        <label style={{ display: 'block', fontWeight: 600, marginBottom: 8 }}>
-          Watch path (file or folder)
-        </label>
-        <input
-          type="text"
-          value={watchPath}
-          onChange={(e) => setWatchPath(e.target.value)}
-          placeholder="/Users/you/projects/solution.py"
-          style={{ width: '100%', padding: '8px 12px', fontSize: 14, border: '1px solid #ccc', borderRadius: 6, boxSizing: 'border-box' }}
-        />
-      </section>
+      {/* Question preview */}
+      {planLoaded && snapshot.plan && <QuestionPreview plan={snapshot.plan} />}
 
-      {error && <p style={{ color: '#dc2626', marginBottom: 16, fontSize: 13 }}>{error}</p>}
+      {/* Watch path + duration */}
+      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 10, marginBottom: 16 }}>
+        <div>
+          <label style={LABEL}>Watch path (file or folder)</label>
+          <input
+            type="text"
+            value={watchPath}
+            onChange={e => setWatchPath(e.target.value)}
+            placeholder="/Users/you/projects/solution.py"
+            style={GLASS_INPUT}
+          />
+        </div>
+        <div>
+          <label style={LABEL}>Duration (min)</label>
+          <input
+            type="number"
+            value={durationMinutes}
+            onChange={e => setDurationMinutes(Math.max(1, Number(e.target.value)))}
+            min={1}
+            style={{ ...GLASS_INPUT, textAlign: 'center' }}
+          />
+        </div>
+      </div>
+
+      {error && (
+        <p style={{ color: '#f87171', fontSize: 12, margin: '0 0 14px' }}>{error}</p>
+      )}
 
       <button
         onClick={handleStart}
-        disabled={!planLoaded || !watchPath || loading}
+        disabled={!canStart}
         style={{
-          width: '100%', padding: '12px', fontSize: 16, fontWeight: 700,
-          background: planLoaded && watchPath ? '#111' : '#e5e7eb',
-          color: planLoaded && watchPath ? '#fff' : '#9ca3af',
-          border: 'none', borderRadius: 8, cursor: planLoaded && watchPath ? 'pointer' : 'not-allowed',
+          width: '100%',
+          padding: 14,
+          fontSize: 15,
+          fontWeight: 700,
+          background: canStart ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.06)',
+          color: canStart ? '#0d1b3e' : 'rgba(255,255,255,0.2)',
+          border: 'none',
+          borderRadius: 10,
+          cursor: canStart ? 'pointer' : 'not-allowed',
+          letterSpacing: '-0.2px',
         }}
       >
         Start Interview
