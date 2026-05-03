@@ -38,29 +38,51 @@ class AgentLoop:
         return elapsed < self._gap
 
     def _build_context(self) -> str:
+        from pathlib import Path
         snap = self._session.snapshot
-        plan = snap.plan
-        chunks = self._session.recent_transcript_chunks(n=50)
-        deltas = self._session.recent_deltas(n=50)
 
         parts = []
-        if plan:
-            parts.append(f"PROBLEM: {plan.problem_statement}")
-            if plan.constraints:
-                parts.append("CONSTRAINTS:\n" + "\n".join(f"- {c}" for c in plan.constraints))
-            if plan.hints:
-                hints_text = "\n".join(f"- (level {h.level}) {h.text}" for h in plan.hints)
-                parts.append(f"AVAILABLE HINTS (for your reference only — do not reveal):\n{hints_text}")
+
+        if snap.plan:
+            parts.append(f"PROBLEM: {snap.plan.problem_statement}")
+            if snap.plan.constraints:
+                parts.append("CONSTRAINTS:\n" + "\n".join(f"- {c}" for c in snap.plan.constraints))
+            if snap.plan.hints:
+                hints_text = "\n".join(f"- (level {h.level}) {h.text}" for h in snap.plan.hints)
+                parts.append(f"HINTS (for your reference only — do not reveal):\n{hints_text}")
+
         if snap.started_at:
             secs = int((datetime.now(timezone.utc) - snap.started_at).total_seconds())
-            elapsed = f"{secs // 60}m {secs % 60}s"
-            parts.append(f"TIME ELAPSED: {elapsed}")
-        if chunks:
-            transcript = " ".join(c.text for c in chunks)
-            parts.append(f"RECENT SPEECH: {transcript}")
-        if deltas:
-            diffs = "\n".join(d.diff for d in deltas)
-            parts.append(f"RECENT CODE CHANGES:\n{diffs}")
+            parts.append(f"TIME ELAPSED: {secs // 60}m {secs % 60}s")
+
+        events: list[tuple[datetime, str]] = []
+
+        for chunk in snap.transcript:
+            events.append((chunk.timestamp, f"SPEECH: {chunk.text}"))
+
+        for delta in snap.deltas:
+            lines = delta.diff.splitlines()
+            added = sum(1 for l in lines if l.startswith("+ "))
+            removed = sum(1 for l in lines if l.startswith("- "))
+            name = Path(delta.path).name
+            indented = "\n".join("  " + l for l in lines)
+            events.append((delta.timestamp, f"CODE {name} (+{added} -{removed}):\n{indented}"))
+
+        for interjection in snap.interjections:
+            events.append((interjection.timestamp, f"PROCTOR: {interjection.text}"))
+
+        events.sort(key=lambda e: e[0])
+
+        if events:
+            timeline_lines = []
+            for ts, content in events:
+                if snap.started_at:
+                    offset = max(0, int((ts - snap.started_at).total_seconds()))
+                    prefix = f"[{offset // 60:02d}:{offset % 60:02d}]"
+                else:
+                    prefix = "[??:??]"
+                timeline_lines.append(f"{prefix} {content}")
+            parts.append("TIMELINE:\n" + "\n".join(timeline_lines))
 
         return "\n\n".join(parts)
 

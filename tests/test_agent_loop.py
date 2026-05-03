@@ -1,10 +1,10 @@
 import asyncio
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock
 from backend.agent.loop import AgentLoop
 from backend.session.manager import SessionManager
-from backend.session.models import InterviewPlan, HintStep, TranscriptChunk
+from backend.session.models import InterviewPlan, HintStep, TranscriptChunk, FileDelta, Interjection
 
 
 @pytest.fixture
@@ -106,3 +106,100 @@ async def test_agent_file_save_trigger(session):
 
     assert len(emitted) == 1
     assert emitted[0].trigger == "file_save"
+
+
+def test_build_context_chronological_ordering():
+    """Events added out of order should appear sorted by timestamp in the timeline."""
+    mgr = SessionManager()
+    mgr.start(watch_path="/foo/main.py")
+    t0 = mgr.snapshot.started_at
+
+    # Add deliberately out of order: delta first, then earlier speech
+    mgr.add_file_delta(FileDelta(
+        path="/foo/main.py", diff="+ x = 1",
+        timestamp=t0 + timedelta(seconds=75),
+    ))
+    mgr.add_transcript_chunk(TranscriptChunk(
+        text="I'll use a hash map",
+        timestamp=t0 + timedelta(seconds=42),
+        duration_seconds=2.0,
+    ))
+    mgr.add_interjection(Interjection(
+        text="Have you considered edge cases?",
+        timestamp=t0 + timedelta(seconds=240),
+        trigger="speech_pause",
+    ))
+
+    loop = AgentLoop(
+        session=mgr, llm=AsyncMock(),
+        min_interjection_gap_seconds=0, on_interjection=lambda i: None,
+    )
+    context = loop._build_context()
+
+    speech_pos = context.index("[00:42] SPEECH:")
+    code_pos = context.index("[01:15] CODE")
+    proctor_pos = context.index("[04:00] PROCTOR:")
+    assert speech_pos < code_pos < proctor_pos
+
+
+def test_build_context_event_labels():
+    """All three event types appear with correct labels and content."""
+    mgr = SessionManager()
+    mgr.start(watch_path="/foo/main.py")
+    t0 = mgr.snapshot.started_at
+
+    mgr.add_transcript_chunk(TranscriptChunk(
+        text="thinking aloud", timestamp=t0 + timedelta(seconds=10), duration_seconds=1.0,
+    ))
+    mgr.add_file_delta(FileDelta(
+        path="/foo/main.py", diff="+ def solve(): pass",
+        timestamp=t0 + timedelta(seconds=20),
+    ))
+    mgr.add_interjection(Interjection(
+        text="What's the time complexity?",
+        timestamp=t0 + timedelta(seconds=30),
+        trigger="speech_pause",
+    ))
+
+    loop = AgentLoop(
+        session=mgr, llm=AsyncMock(),
+        min_interjection_gap_seconds=0, on_interjection=lambda i: None,
+    )
+    context = loop._build_context()
+
+    assert "SPEECH: thinking aloud" in context
+    assert "CODE main.py" in context
+    assert "PROCTOR: What's the time complexity?" in context
+
+
+def test_build_context_mm_ss_format():
+    """Elapsed timestamps render as [MM:SS] relative to session start."""
+    mgr = SessionManager()
+    mgr.start(watch_path="/foo/main.py")
+    t0 = mgr.snapshot.started_at
+
+    mgr.add_transcript_chunk(TranscriptChunk(
+        text="hello", timestamp=t0 + timedelta(seconds=125), duration_seconds=1.0,
+    ))
+
+    loop = AgentLoop(
+        session=mgr, llm=AsyncMock(),
+        min_interjection_gap_seconds=0, on_interjection=lambda i: None,
+    )
+    context = loop._build_context()
+
+    assert "[02:05] SPEECH: hello" in context
+
+
+def test_build_context_no_timeline_when_empty():
+    """No TIMELINE section when the session has no events yet."""
+    mgr = SessionManager()
+    mgr.start(watch_path="/foo/main.py")
+
+    loop = AgentLoop(
+        session=mgr, llm=AsyncMock(),
+        min_interjection_gap_seconds=0, on_interjection=lambda i: None,
+    )
+    context = loop._build_context()
+
+    assert "TIMELINE" not in context
