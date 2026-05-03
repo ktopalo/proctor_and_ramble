@@ -11,6 +11,7 @@ class STTConfig(BaseModel):
 class LLMConfig(BaseModel):
     provider: str
     model: str
+    codex_path: str = "codex"
 
 
 class AgentConfig(BaseModel):

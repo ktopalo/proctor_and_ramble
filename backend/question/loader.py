@@ -1,8 +1,11 @@
 import json
+import logging
 from html.parser import HTMLParser
 import httpx
 from backend.engines.llm_base import BaseLLMClient
 from backend.session.models import InterviewPlan
+
+log = logging.getLogger(__name__)
 
 
 class _TextExtractor(HTMLParser):
@@ -56,6 +59,7 @@ _SYSTEM_PROMPT = (
 
 
 async def load_question(url: str, llm: BaseLLMClient) -> InterviewPlan:
+    log.info("Fetching question  url=%s", url)
     async with httpx.AsyncClient() as client:
         response = await client.get(url, follow_redirects=True, timeout=10.0)
         response.raise_for_status()
@@ -69,5 +73,12 @@ async def load_question(url: str, llm: BaseLLMClient) -> InterviewPlan:
         system_prompt=_SYSTEM_PROMPT,
     )
 
-    data = json.loads(raw.strip())
-    return InterviewPlan(**data, source_url=url)
+    try:
+        data = json.loads(raw.strip())
+    except json.JSONDecodeError as exc:
+        log.error("Failed to parse LLM JSON response  error=%s  raw=%r", exc, raw[:200])
+        raise
+
+    plan = InterviewPlan(**data, source_url=url)
+    log.info("InterviewPlan created  problem=%s", plan.problem_statement[:80])
+    return plan

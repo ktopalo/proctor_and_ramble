@@ -1,5 +1,7 @@
 import asyncio
+import logging
 import threading
+import time
 from typing import Callable, Awaitable
 import numpy as np
 import sounddevice as sd
@@ -10,6 +12,8 @@ from backend.session.models import TranscriptChunk
 _SAMPLE_RATE = 16000
 _BLOCK_SIZE = 1600  # 100ms
 _SPEECH_THRESHOLD = 0.01  # RMS level above which we consider speech
+
+log = logging.getLogger(__name__)
 
 
 class MLXWhisperEngine(BaseSTTEngine):
@@ -31,23 +35,39 @@ class MLXWhisperEngine(BaseSTTEngine):
         self._on_speech_pause = callback
 
     def start(self) -> None:
+        try:
+            devices = sd.query_devices()
+            default_in = sd.default.device[0]
+            log.info("MLXWhisper starting  model=%s  input=%r",
+                     self._model, devices[default_in]["name"] if default_in >= 0 else "none")
+        except Exception:
+            log.info("MLXWhisper starting  model=%s", self._model)
+
         self._loop = asyncio.get_event_loop()
-        self._stream = sd.InputStream(
-            samplerate=_SAMPLE_RATE,
-            channels=1,
-            dtype="float32",
-            blocksize=_BLOCK_SIZE,
-            callback=self._audio_callback,
-        )
-        self._stream.start()
+        try:
+            self._stream = sd.InputStream(
+                samplerate=_SAMPLE_RATE,
+                channels=1,
+                dtype="float32",
+                blocksize=_BLOCK_SIZE,
+                callback=self._audio_callback,
+            )
+            self._stream.start()
+        except Exception as exc:
+            log.error("MLXWhisper failed to open audio stream: %s", exc)
+            raise
 
     def stop(self) -> None:
         if self._stream:
             self._stream.stop()
             self._stream.close()
             self._stream = None
+            log.info("MLXWhisper stopped")
 
-    def _audio_callback(self, indata, frames, time, status):
+    def _audio_callback(self, indata, frames, _time_info, status):
+        if status:
+            log.warning("MLXWhisper audio status: %s", status)
+
         rms = float(np.sqrt(np.mean(indata ** 2)))
         with self._lock:
             if rms > _SPEECH_THRESHOLD:
@@ -59,17 +79,33 @@ class MLXWhisperEngine(BaseSTTEngine):
                     audio = np.array(self._buffer, dtype=np.float32)
                     self._buffer = []
                     self._silence_duration = 0.0
-                    asyncio.run_coroutine_threadsafe(
+                    future = asyncio.run_coroutine_threadsafe(
                         self._transcribe_and_notify(audio), self._loop
                     )
+                    future.add_done_callback(_log_future_exception)
 
     async def _transcribe_and_notify(self, audio: np.ndarray) -> None:
-        result = mlx_whisper.transcribe(audio, path_or_hf_repo=self._model)
+        duration = len(audio) / _SAMPLE_RATE
+        t0 = time.monotonic()
+        try:
+            result = mlx_whisper.transcribe(audio, path_or_hf_repo=self._model)
+        except Exception as exc:
+            log.error("MLXWhisper transcription failed  error=%s", exc)
+            return
+        elapsed = time.monotonic() - t0
         text = result.get("text", "").strip()
-        if text and self._on_transcript:
-            chunk = TranscriptChunk(
-                text=text, duration_seconds=len(audio) / _SAMPLE_RATE
-            )
-            await self._on_transcript(chunk)
+        if text:
+            log.info("MLXWhisper transcript  elapsed=%.2fs  text=%r", elapsed, text[:120])
+            if self._on_transcript:
+                chunk = TranscriptChunk(text=text, duration_seconds=duration)
+                await self._on_transcript(chunk)
+        else:
+            log.info("MLXWhisper transcript empty  elapsed=%.2fs", elapsed)
         if self._on_speech_pause:
             await self._on_speech_pause()
+
+
+def _log_future_exception(future: "asyncio.Future[None]") -> None:
+    exc = future.exception()
+    if exc:
+        log.error("MLXWhisper async dispatch raised: %s", exc)

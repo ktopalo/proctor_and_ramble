@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import type { SessionSnapshot, WSEvent, Interjection, InterviewPlan } from '../types/session'
+import type { SessionSnapshot, WSEvent, Interjection, InterviewPlan, TranscriptChunk, FileDelta } from '../types/session'
 
 const WS_URL = 'ws://127.0.0.1:8000/ws'
 
@@ -35,6 +35,16 @@ export function useSession() {
             return { ...prev, started_at: new Date().toISOString() }
           case 'session_ended':
             return { ...prev, ended_at: new Date().toISOString() }
+          case 'transcript_chunk':
+            return {
+              ...prev,
+              transcript: [...prev.transcript, msg.data as unknown as TranscriptChunk],
+            }
+          case 'file_delta':
+            return {
+              ...prev,
+              deltas: [...prev.deltas, msg.data as unknown as FileDelta],
+            }
           case 'interjection':
             return {
               ...prev,
@@ -56,7 +66,9 @@ export function useSession() {
       body: JSON.stringify({ url }),
     })
     if (!res.ok) throw new Error('Failed to load question')
-    return res.json() as Promise<unknown>
+    const data = await res.json() as { status: string; plan: InterviewPlan }
+    setSnapshot(prev => ({ ...prev, plan: data.plan }))
+    return data
   }, [])
 
   const startSession = useCallback(async (watchPath: string) => {

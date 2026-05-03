@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from backend.session.models import (
     TranscriptChunk, FileDelta, Interjection,
     InterviewPlan, SessionSnapshot,
@@ -11,12 +11,13 @@ class SessionManager:
 
     def start(self, watch_path: str) -> None:
         self.snapshot = SessionSnapshot(
-            started_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
             watch_path=watch_path,
+            plan=self.snapshot.plan,
         )
 
     def end(self) -> None:
-        self.snapshot.ended_at = datetime.utcnow()
+        self.snapshot.ended_at = datetime.now(timezone.utc)
 
     def set_plan(self, plan: InterviewPlan) -> None:
         self.snapshot.plan = plan

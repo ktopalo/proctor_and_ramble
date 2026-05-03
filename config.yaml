@@ -1,16 +1,20 @@
 stt:
   engine: mlx_whisper
-  model: mlx-community/whisper-large-v3-mlx
+  model: mlx-community/whisper-large-v3-turbo
   speech_pause_threshold_seconds: 3
 
 llm:
-  provider: openai
-  model: gpt-4o
+  # provider: openai
+  # model: gpt-5.3
+  # # To use ChatGPT subscription via Codex CLI instead:
+  provider: codex_cli
+  model: gpt-5.3-codex
+  codex_path: codex  # path to codex binary if not on PATH
 
 agent:
-  min_seconds_between_interjections: 30
-  context_transcript_chunks: 20
-  context_recent_deltas: 5
+  min_seconds_between_interjections: 5
+  context_transcript_chunks: 50
+  context_recent_deltas: 50
 
 server:
   host: 127.0.0.1

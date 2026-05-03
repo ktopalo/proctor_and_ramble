@@ -1,0 +1,13 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.3, pytest-9.0.3, pluggy-1.6.0 -- /Users/Konstantin/projects/proctor_and_ramble/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/Konstantin/projects/proctor_and_ramble
+configfile: pyproject.toml
+plugins: mock-3.15.1, asyncio-1.3.0, anyio-4.13.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 2 items
+
+tests/test_question_loader.py::test_load_question_returns_interview_plan PASSED [ 50%]
+tests/test_question_loader.py::test_load_question_passes_url_to_plan PASSED [100%]
+
+============================== 2 passed in 0.11s ===============================

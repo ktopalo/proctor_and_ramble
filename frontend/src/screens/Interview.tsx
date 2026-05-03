@@ -1,5 +1,5 @@
 // frontend/src/screens/Interview.tsx
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Timer from '../components/Timer'
 import QuestionPanel from '../components/QuestionPanel'
 import ProctorPanel from '../components/ProctorPanel'
@@ -20,6 +20,9 @@ export default function Interview({ onEnd, timerDuration }: Props) {
     await endSession()
     onEnd()
   }
+
+  const [showSpeech, setShowSpeech] = useState(false)
+  const recentSpeech = snapshot.transcript.slice(-10).reverse()
 
   const glassPanel = {
     background: 'rgba(255,255,255,0.07)',
@@ -62,6 +65,27 @@ export default function Interview({ onEnd, timerDuration }: Props) {
         </div>
       </div>
 
+      {/* Speech stream (collapsed by default) */}
+      {showSpeech && (
+        <div style={{
+          ...glassPanel,
+          padding: '10px 16px', flexShrink: 0, maxHeight: 150, overflowY: 'auto',
+        }}>
+          {recentSpeech.length === 0 ? (
+            <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>No speech detected yet...</span>
+          ) : (
+            recentSpeech.map((chunk, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, fontSize: 12, lineHeight: 1.7 }}>
+                <span style={{ color: 'rgba(255,255,255,0.3)', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                  {new Date(chunk.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </span>
+                <span style={{ color: 'rgba(255,255,255,0.7)' }}>{chunk.text}</span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
       {/* Status bar */}
       <div style={{
         background: 'rgba(255,255,255,0.05)',
@@ -73,11 +97,25 @@ export default function Interview({ onEnd, timerDuration }: Props) {
         padding: '8px 16px', fontSize: 12, flexShrink: 0,
       }}>
         <span style={{ color: connected ? '#34d399' : '#f87171' }}>
-          {connected ? '● Connected' : '○ Disconnected'}
+          {connected ? '● Recording' : '○ Disconnected'}
         </span>
         {snapshot.watch_path && (
           <span style={{ color: 'rgba(255,255,255,0.45)' }}>watching: {snapshot.watch_path}</span>
         )}
+        <button
+          onClick={() => setShowSpeech(v => !v)}
+          style={{
+            marginLeft: 'auto',
+            background: 'none',
+            border: 'none',
+            color: 'rgba(255,255,255,0.35)',
+            cursor: 'pointer',
+            fontSize: 12,
+            padding: '0 4px',
+          }}
+        >
+          speech {showSpeech ? '▾' : '▸'}
+        </button>
       </div>
     </div>
   )
