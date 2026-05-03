@@ -100,6 +100,10 @@ async def _on_interjection(interjection: Interjection):
     })
 
 
+async def _on_follow_up_revealed():
+    await connection_manager.broadcast({"type": "follow_up_revealed", "data": {}})
+
+
 app = FastAPI(title="Proctor & Ramble")
 app.add_middleware(
     CORSMiddleware,
@@ -124,7 +128,7 @@ async def load_question_endpoint(req: LoadQuestionRequest):
     log.info("Loading question  url=%s", req.url)
     plan = await load_question(req.url, llm)
     manager.set_plan(plan)
-    log.info("Question loaded  problem=%s", plan.problem_statement[:80])
+    log.info("Question loaded  problem=%s", plan.problem_markdown[:80])
     await connection_manager.broadcast({
         "type": "plan_loaded",
         "data": plan.model_dump(mode="json"),
@@ -148,6 +152,7 @@ async def start_session(req: StartSessionRequest):
         llm=llm,
         min_interjection_gap_seconds=config.agent.min_seconds_between_interjections,
         on_interjection=lambda i: asyncio.ensure_future(_on_interjection(i)),
+        on_follow_up_revealed=lambda: asyncio.ensure_future(_on_follow_up_revealed()),
     )
 
     _file_watcher = FileWatcher(
@@ -211,14 +216,14 @@ async def generate_feedback():
     transcript_text = " ".join(c.text for c in snap.transcript)
     diffs_text = "\n".join(d.diff for d in snap.deltas)
     interjections_text = "\n".join(f"- {i.text}" for i in snap.interjections)
-    rubric_text = "\n".join(f"{k}: {v}" for k, v in snap.plan.rubric.items())
 
     prompt = f"""You are reviewing a technical interview. Evaluate the candidate on each rubric dimension.
 
-PROBLEM: {snap.plan.problem_statement}
+PROBLEM:
+{snap.plan.problem_markdown}
 
 RUBRIC:
-{rubric_text}
+{snap.plan.rubric}
 
 TRANSCRIPT:
 {transcript_text}
