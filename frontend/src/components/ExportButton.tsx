@@ -38,8 +38,14 @@ export default function ExportButton({ snapshot }: Props) {
     <button
       onClick={handleExport}
       style={{
-        padding: '8px 20px', borderRadius: 6, border: '1px solid #e5e7eb',
-        background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 600,
+        padding: '8px 20px',
+        borderRadius: 8,
+        border: '1px solid rgba(255,255,255,0.15)',
+        background: 'rgba(255,255,255,0.07)',
+        color: 'rgba(255,255,255,0.7)',
+        cursor: 'pointer',
+        fontSize: 13,
+        fontWeight: 600,
       }}
     >
       Export transcript
