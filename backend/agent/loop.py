@@ -4,7 +4,7 @@ from typing import Callable
 from backend.session.manager import SessionManager
 from backend.engines.llm.llm_base import BaseLLMClient
 from backend.session.models import Interjection
-from backend.agent.prompts import get_prompt
+from backend.prompts import PROCTOR_SYSTEM_PROMPT
 
 log = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ class AgentLoop:
         log.info("AgentLoop evaluating  trigger=%s  transcript_chunks=%d  deltas=%d",
                  trigger, len(snap.transcript), len(snap.deltas))
 
-        system_prompt = get_prompt()
+        system_prompt = PROCTOR_SYSTEM_PROMPT
         if snap.plan:
             system_prompt = (
                 f"{system_prompt}\n\n---\n\n"
