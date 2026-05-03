@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Callable
 from backend.session.manager import SessionManager
 from backend.engines.llm_base import BaseLLMClient
@@ -38,7 +39,6 @@ class AgentLoop:
         return elapsed < self._gap
 
     def _build_context(self) -> str:
-        from pathlib import Path
         snap = self._session.snapshot
 
         parts = []
