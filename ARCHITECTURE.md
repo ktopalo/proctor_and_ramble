@@ -16,6 +16,8 @@ An AI interviewer that recreates the feeling of having a live proctor. It watche
 | STT (fallback) | mlx-whisper (Apple Silicon, on-device) |
 | LLM (default) | OpenAI API (`gpt-4o`) |
 | LLM (alt) | Codex CLI subprocess wrapper |
+| TTS (default) | ElevenLabs API |
+| TTS (alt) | Piper (local, offline, free) |
 | File watching | watchdog |
 
 **V2 note:** Target native macOS app packaging (Tauri or Swift wrapper) once core is stable. V1 runs as two local processes (backend + frontend dev server).
@@ -84,10 +86,15 @@ proctor_and_ramble/
 │   │   │   ├── stt_base.py      # Abstract BaseSTTEngine — VAD + audio capture; subclass only transcribe()
 │   │   │   ├── groq_whisper.py  # Groq Whisper API (default)
 │   │   │   └── mlx_whisper.py   # mlx-whisper on-device (Apple Silicon fallback)
-│   │   └── llm/
-│   │       ├── llm_base.py      # Abstract BaseLLMClient — complete() + stream_complete()
-│   │       ├── openai_client.py # OpenAI SDK (default)
-│   │       └── codex_cli_client.py  # Codex CLI subprocess wrapper
+│   │   ├── llm/
+│   │   │   ├── llm_base.py      # Abstract BaseLLMClient — complete() + stream_complete()
+│   │   │   ├── openai_client.py # OpenAI SDK (default)
+│   │   │   └── codex_cli_client.py  # Codex CLI subprocess wrapper
+│   │   └── tts/
+│   │       ├── tts_base.py      # Abstract BaseTTSEngine — synthesize(text) -> (PCM bytes, sample_rate)
+│   │       ├── elevenlabs_tts.py  # ElevenLabs API (default)
+│   │       ├── piper_tts.py     # Piper local TTS (offline, free)
+│   │       └── player.py        # TTSPlayer — asyncio queue + sounddevice playback
 │   ├── watcher/
 │   │   └── file_watcher.py      # watchdog-based; diffs on save; bridges sync→async
 │   ├── agent/
@@ -148,6 +155,13 @@ class ServerConfig:
 
 class FrontendConfig:
     port: int                            # default 5173
+
+class TTSConfig:
+    enabled: bool                        # default True — set False to disable TTS entirely
+    provider: str                        # "elevenlabs" | "piper"
+    voice_id: str                        # ElevenLabs voice ID (e.g. "Rachel")
+    model_id: str                        # ElevenLabs model (e.g. "eleven_monolingual_v1")
+    model_path: str                      # Piper .onnx model file path (piper only)
 ```
 
 ---
@@ -266,6 +280,48 @@ The `_on_transcript` and `_on_speech_pause` callbacks are injected by `main.py` 
 
 - Apple Silicon on-device fallback. No API key needed.
 - `transcribe()`: calls `mlx_whisper.transcribe(audio, path_or_hf_repo=model)` directly.
+
+---
+
+### TTS Engine (`backend/engines/tts/`)
+
+Converts proctor interjection text to audio, played through the machine's default output device. Follows the same abstract-base + factory pattern as STT and LLM.
+
+#### Base class (`tts_base.py`)
+
+```python
+class BaseTTSEngine(ABC):
+    async def synthesize(self, text: str) -> tuple[bytes, int]:
+        # Returns (raw 16-bit PCM bytes, sample_rate_hz)
+        ...
+    async def close(self) -> None: ...
+```
+
+#### `TTSPlayer` (`player.py`)
+
+Wraps a `BaseTTSEngine`. Owns an `asyncio.Queue[str]`; the worker loop dequeues text, calls `engine.synthesize()`, and plays PCM via `sounddevice.play()` + `sd.wait()` (in a thread executor). Errors are logged and skipped — TTS failure never blocks the session.
+
+Started on FastAPI `startup`, stopped on `shutdown`. Wired into `_on_interjection()` in `main.py`: after broadcasting the `interjection` WebSocket event, `tts_player.enqueue(interjection.text)` is called.
+
+#### `ElevenLabsTTSEngine` (`elevenlabs_tts.py`)
+
+- Calls `POST https://api.elevenlabs.io/v1/text-to-speech/{voice_id}?output_format=pcm_22050`
+- Returns raw 16-bit PCM at 22050 Hz directly — no decoding step needed
+- API key from `ELEVENLABS_API_KEY` env var
+- Config: `tts.voice_id`, `tts.model_id`
+
+#### `PiperTTSEngine` (`piper_tts.py`)
+
+- Wraps `piper-tts` Python package (optional dep: `pip install 'proctor_and_ramble[piper]'`)
+- Synthesis is CPU-bound; runs via `run_in_executor`
+- Requires a `.onnx` voice model file in `models/piper/` (gitignored, downloaded separately)
+- Config: `tts.model_path`
+
+**To add a new TTS backend:**
+1. Subclass `BaseTTSEngine` in `backend/engines/tts/`
+2. Implement `async synthesize(text) -> (pcm_bytes, sample_rate)`
+3. Add a branch to `_build_tts()` in `backend/main.py`
+4. Add any new config fields to `TTSConfig` in `backend/config.py`
 
 ---
 
@@ -475,6 +531,7 @@ LIVE INTERVIEW
           → optional Interjection if msg present
         other → Interjection
     → if Interjection: SessionManager.add_interjection + WS broadcast: interjection
+                       + tts_player.enqueue(interjection.text) → spoken aloud
 
 POST /session/end
     → STT engine stopped, FileWatcher stopped
@@ -582,12 +639,20 @@ server:
 
 frontend:
   port: 5173                    # informational only — not read by backend
+
+tts:
+  enabled: true
+  provider: elevenlabs          # "elevenlabs" | "piper"
+  voice_id: Rachel              # ElevenLabs voice ID
+  model_id: eleven_monolingual_v1
+  model_path: models/piper/en_US-amy-medium.onnx  # Piper only
 ```
 
 Secrets in `.env` (never committed):
 ```
 OPENAI_API_KEY=sk-...
 GROQ_API_KEY=gsk_...
+ELEVENLABS_API_KEY=sk_...
 ```
 
 ---
@@ -647,7 +712,9 @@ Add any new config fields to `LLMConfig` in `backend/config.py`.
 
 ## Out of Scope (V1)
 
-- TTS for agent interjections (V2)
+- Streaming TTS (lower latency for long interjections — V2)
+- Interrupting TTS when user speech is detected (V2)
+- Frontend audio controls (play/pause/replay, volume — V2)
 - Image captioning / Excalidraw for system design interviews (V2)
 - Native macOS app packaging — Tauri or Swift wrapper (V2)
 - Multi-question sessions / question banks (V2)
