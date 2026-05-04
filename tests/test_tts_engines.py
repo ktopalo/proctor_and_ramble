@@ -1,4 +1,7 @@
+import io
+import wave
 import httpx
+import numpy as np
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from backend.engines.tts.tts_base import BaseTTSEngine
@@ -78,3 +81,45 @@ async def test_elevenlabs_raises_on_http_error():
         )
         with pytest.raises(httpx.HTTPStatusError):
             await engine.synthesize("Hello")
+
+
+from backend.engines.tts.piper_tts import PiperTTSEngine
+
+
+def test_piper_synthesize_sync_returns_pcm():
+    def fake_synthesize(text, wav_file):
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(22050)
+        wav_file.writeframes(np.zeros(100, dtype=np.int16).tobytes())
+
+    mock_voice = MagicMock()
+    mock_voice.synthesize = fake_synthesize
+
+    with patch("backend.engines.tts.piper_tts._PiperVoice") as MockPiperVoice:
+        MockPiperVoice.load.return_value = mock_voice
+        engine = PiperTTSEngine("dummy.onnx")
+        pcm, sr = engine._synthesize_sync("Hello")
+
+    assert sr == 22050
+    assert len(pcm) == 200  # 100 samples * 2 bytes
+
+
+@pytest.mark.asyncio
+async def test_piper_synthesize_async():
+    def fake_synthesize(text, wav_file):
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(22050)
+        wav_file.writeframes(np.zeros(50, dtype=np.int16).tobytes())
+
+    mock_voice = MagicMock()
+    mock_voice.synthesize = fake_synthesize
+
+    with patch("backend.engines.tts.piper_tts._PiperVoice") as MockPiperVoice:
+        MockPiperVoice.load.return_value = mock_voice
+        engine = PiperTTSEngine("dummy.onnx")
+        pcm, sr = await engine.synthesize("Hello")
+
+    assert sr == 22050
+    assert len(pcm) == 100  # 50 samples * 2 bytes
