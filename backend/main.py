@@ -18,6 +18,7 @@ from backend.engines.stt.mlx_whisper import MLXWhisperEngine
 from backend.question.loader import load_question
 from backend.watcher.file_watcher import FileWatcher
 from backend.agent.loop import AgentLoop
+from backend.engines.tts.player import TTSPlayer
 
 load_dotenv()
 
@@ -48,6 +49,7 @@ llm = _build_llm()
 _file_watcher: FileWatcher | None = None
 _agent_loop: AgentLoop | None = None
 _stt_engine: BaseSTTEngine | None = None
+tts_player: TTSPlayer | None = None
 
 
 def _build_stt() -> BaseSTTEngine:
@@ -63,6 +65,24 @@ def _build_stt() -> BaseSTTEngine:
             pause_threshold_seconds=config.stt.speech_pause_threshold_seconds,
         )
     raise ValueError(f"Unknown STT engine: {config.stt.engine}")
+
+
+def _build_tts() -> TTSPlayer | None:
+    if not config.tts.enabled:
+        return None
+    if config.tts.provider == "elevenlabs":
+        from backend.engines.tts.elevenlabs_tts import ElevenLabsTTSEngine
+        engine = ElevenLabsTTSEngine(
+            api_key=os.environ["ELEVENLABS_API_KEY"],
+            voice_id=config.tts.voice_id,
+            model_id=config.tts.model_id,
+        )
+    elif config.tts.provider == "piper":
+        from backend.engines.tts.piper_tts import PiperTTSEngine
+        engine = PiperTTSEngine(model_path=config.tts.model_path)
+    else:
+        raise ValueError(f"Unknown TTS provider: {config.tts.provider!r}")
+    return TTSPlayer(engine)
 
 
 async def _handle_transcript_chunk(chunk: TranscriptChunk) -> None:
@@ -104,6 +124,8 @@ async def _on_interjection(interjection: Interjection):
         "type": "interjection",
         "data": interjection.model_dump(mode="json"),
     })
+    if tts_player:
+        await tts_player.enqueue(interjection.text)
 
 
 async def _on_follow_up_revealed():
@@ -111,6 +133,22 @@ async def _on_follow_up_revealed():
 
 
 app = FastAPI(title="Proctor & Ramble")
+
+
+@app.on_event("startup")
+async def _startup() -> None:
+    global tts_player
+    tts_player = _build_tts()
+    if tts_player:
+        tts_player.start()
+
+
+@app.on_event("shutdown")
+async def _shutdown() -> None:
+    if tts_player:
+        await tts_player.close()
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],

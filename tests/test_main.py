@@ -53,3 +53,28 @@ def test_get_snapshot():
     data = response.json()
     assert "transcript" in data
     assert "interjections" in data
+
+
+@pytest.mark.asyncio
+async def test_on_interjection_enqueues_tts():
+    from unittest.mock import AsyncMock, MagicMock
+    from datetime import datetime, timezone
+    import backend.main as main_module
+    from backend.session.models import Interjection
+
+    mock_player = MagicMock()
+    mock_player.enqueue = AsyncMock()
+    original = main_module.tts_player
+    main_module.tts_player = mock_player
+    try:
+        interjection = Interjection(
+            text="Can you walk me through your approach?",
+            timestamp=datetime.now(timezone.utc),
+            trigger="speech_pause",
+        )
+        await main_module._on_interjection(interjection)
+        mock_player.enqueue.assert_called_once_with(
+            "Can you walk me through your approach?"
+        )
+    finally:
+        main_module.tts_player = original
